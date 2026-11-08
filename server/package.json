@@ -1,0 +1,19 @@
+{
+  "name": "iem-admission-system-server",
+  "version": "1.0.0",
+  "description": "Backend API for IEM Online Admission System (Express.js, Firebase Admin, Razorpay)",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "firebase-admin": "^12.7.0",
+    "morgan": "^1.10.0",
+    "razorpay": "^2.9.5"
+  }
+}
