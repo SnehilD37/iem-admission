@@ -1,33 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useApplication } from '../../context/ApplicationContext';
 import { 
-  GraduationCap, 
-  ShieldCheck, 
-  ChevronDown, 
-  UserCheck, 
-  LogOut, 
-  RotateCcw,
-  Sparkles,
-  PhoneCall,
-  Bell,
-  Activity
+  LogOut
 } from 'lucide-react';
-import DiagnosticsModal from './DiagnosticsModal';
 
 
 export const Navbar = () => {
-  const { user, role, loginAsDemo, demoUsers, logout } = useAuth();
-  const { resetAllDemoData } = useApplication();
-  const [demoDropdownOpen, setDemoDropdownOpen] = useState(false);
-  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const { user, role, logout } = useAuth();
 
   const isAdmin = role === 'admin' || user?.role === 'admin';
-
-  const handleSelectDemo = async (uid) => {
-    setDemoDropdownOpen(false);
-    await loginAsDemo(uid);
-  };
 
   return (
     <>
@@ -74,103 +55,6 @@ export const Navbar = () => {
 
           {/* Right Action: User identity & Logout */}
           <div className="flex items-center gap-3">
-            {isAdmin && (
-              <button 
-                onClick={resetAllDemoData}
-                title="Reset candidates to initial seed state"
-                className="btn btn-outline btn-sm"
-                style={{ fontSize: '0.75rem', padding: '5px 9px', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748B' }}
-              >
-                <RotateCcw size={12} />
-                <span>Reset Demo Store</span>
-              </button>
-            )}
-
-            {/* Codebase Diagnostics & Error Locator Button */}
-            <button
-              onClick={() => setDiagnosticsOpen(true)}
-              title="Open Codebase Diagnostics & Error Locator"
-              className="btn btn-outline btn-sm"
-              style={{
-                fontSize: '0.75rem',
-                padding: '5px 9px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                color: '#2563EB',
-                borderColor: '#BFDBFE',
-                backgroundColor: '#EFF6FF'
-              }}
-            >
-              <Activity size={13} />
-              <span>Diagnostics</span>
-            </button>
-            {/* Quick Demo Switcher (Helpful for test reviews) */}
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setDemoDropdownOpen(!demoDropdownOpen)}
-                className="btn btn-outline btn-sm"
-                style={{ borderColor: '#CBD5E1', display: 'flex', alignItems: 'center', gap: '6px' }}
-                title="Switch test profiles"
-              >
-                <Sparkles size={14} color="#D97706" />
-                <span style={{ fontWeight: 600, fontSize: '0.78rem' }}>
-                  {user ? `${user.name.split(' ')[0]} (${isAdmin ? 'Admin' : 'Student'})` : 'Test Profiles'}
-                </span>
-                <ChevronDown size={14} />
-              </button>
-
-              {demoDropdownOpen && (
-                <div 
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: '110%',
-                    width: '280px',
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: '8px',
-                    boxShadow: 'var(--shadow-xl)',
-                    border: '1px solid var(--card-border)',
-                    padding: '8px',
-                    zIndex: 200
-                  }}
-                >
-                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', padding: '6px 8px' }}>
-                    Quick Test Account Switcher:
-                  </div>
-
-                  {demoUsers.map((u) => (
-                    <button
-                      key={u.uid}
-                      onClick={() => handleSelectDemo(u.uid)}
-                      style={{
-                        width: '100%',
-                        textAlign: 'left',
-                        padding: '8px 10px',
-                        borderRadius: '6px',
-                        fontSize: '0.8rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        backgroundColor: user?.uid === u.uid ? 'var(--primary-light)' : 'transparent',
-                        border: 'none',
-                        cursor: 'pointer'
-                      }}
-                      className="btn-ghost"
-                    >
-                      <div>
-                        <div style={{ fontWeight: 600, color: 'var(--secondary)' }}>{u.name}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
-                          {u.role === 'admin' ? '🛡️ Scrutiny Convener' : `Applicant (${u.applicationId || 'New'})`}
-                        </div>
-                      </div>
-                      {user?.uid === u.uid && <UserCheck size={16} color="var(--primary)" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* User Profile Pill */}
             {user && (
               <div style={{
@@ -227,12 +111,6 @@ export const Navbar = () => {
 
         </div>
       </header>
-
-      {/* Codebase Diagnostics & Issue Locator Modal */}
-      <DiagnosticsModal 
-        isOpen={diagnosticsOpen} 
-        onClose={() => setDiagnosticsOpen(false)} 
-      />
     </>
   );
 };

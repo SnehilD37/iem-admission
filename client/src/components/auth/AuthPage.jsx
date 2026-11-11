@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export const AuthPage = () => {
-  const { loginCustom, loginWithGoogle, register, loginAsDemo, demoUsers } = useAuth();
+  const { loginCustom, loginWithGoogle, register } = useAuth();
   
   // Portal Role Tab: 'student' | 'admin'
   const [portalType, setPortalType] = useState('student');
@@ -82,13 +82,6 @@ export const AuthPage = () => {
     }
   };
 
-  const handleDemoClick = async (demoUid) => {
-    setError('');
-    setLoading(true);
-    await loginAsDemo(demoUid);
-    setLoading(false);
-  };
-
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC' }}>
@@ -104,25 +97,23 @@ export const AuthPage = () => {
             
             {/* Left Column: Institutional Info & Value Props */}
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '1.75rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0px', marginBottom: '1.75rem' }}>
                 <img 
                   src="/logo.png" 
                   alt="IEM Logo" 
                   style={{ 
-                    height: '175px', 
+                    height: '220px', 
                     width: 'auto', 
+                    maxWidth: '100%',
                     objectFit: 'contain', 
-                    display: 'block' 
+                    display: 'block',
+                    marginTop: '-55px',
+                    marginBottom: '-52px'
                   }} 
                 />
-                <div>
-                  <h1 style={{ fontSize: '2.5rem', fontWeight: 900, color: 'var(--secondary)', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
-                    IEM
-                  </h1>
-                  <p style={{ fontSize: '1rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '6px' }}>
-                    Online Admission & Counseling System
-                  </p>
-                </div>
+                <p style={{ fontSize: '1.05rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                  Online Admission & Counseling System
+                </p>
               </div>
 
               <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--secondary)', lineHeight: 1.3, marginBottom: '1rem' }}>
@@ -174,33 +165,6 @@ export const AuthPage = () => {
                       Instant seat provisional allotment letters with verified Razorpay payment.
                     </p>
                   </div>
-                </div>
-              </div>
-
-              {/* Quick Institutional Stats Pill */}
-              <div style={{
-                background: '#FFFFFF',
-                border: '1px solid var(--card-border)',
-                borderRadius: '12px',
-                padding: '12px 18px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                boxShadow: 'var(--shadow-sm)'
-              }}>
-                <div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary)' }}>98.4%</div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>Placement Record</div>
-                </div>
-                <div style={{ width: '1px', height: '28px', background: 'var(--card-border)' }} />
-                <div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--secondary)' }}>NAAC 'A'</div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>Accreditation</div>
-                </div>
-                <div style={{ width: '1px', height: '28px', background: 'var(--card-border)' }} />
-                <div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#059669' }}>35+ Yrs</div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>Excellence</div>
                 </div>
               </div>
             </div>
@@ -536,55 +500,6 @@ export const AuthPage = () => {
                           : 'Sign Up with Google'}
                     </span>
                   </button>
-
-                  {/* 1-Click Fast Test Profiles (Development Helper) */}
-                  <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px dashed var(--card-border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        ⚡ 1-Click Test Scenarios:
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleDemoClick('usr_rahul_1042')}
-                        className="btn btn-outline btn-sm"
-                        style={{
-                          fontSize: '0.75rem',
-                          padding: '8px',
-                          textAlign: 'left',
-                          justifyContent: 'flex-start',
-                          borderRadius: '8px'
-                        }}
-                      >
-                        <GraduationCap size={15} color="var(--primary)" />
-                        <div>
-                          <div style={{ fontWeight: 700, color: 'var(--primary)' }}>Rahul Sen</div>
-                          <div style={{ fontSize: '0.65rem', color: 'var(--muted)' }}>Student (App ID: 1042)</div>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDemoClick('usr_admin_01')}
-                        className="btn btn-outline btn-sm"
-                        style={{
-                          fontSize: '0.75rem',
-                          padding: '8px',
-                          textAlign: 'left',
-                          justifyContent: 'flex-start',
-                          borderRadius: '8px'
-                        }}
-                      >
-                        <ShieldCheck size={15} color="var(--secondary)" />
-                        <div>
-                          <div style={{ fontWeight: 700, color: 'var(--secondary)' }}>Prof. Banerjee</div>
-                          <div style={{ fontSize: '0.65rem', color: 'var(--muted)' }}>Admin / Convener</div>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
 
                 </div>
               </div>

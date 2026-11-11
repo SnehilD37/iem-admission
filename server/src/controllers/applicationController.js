@@ -1,5 +1,6 @@
 import { store } from '../data/initialStore.js';
 import { calculatePcmAggregate } from '../utils/meritCalculator.js';
+import { firebaseDb } from '../config/firebaseAdmin.js';
 
 export const getMyApplication = (req, res) => {
   const userId = req.user?.uid || req.query.userId;
@@ -29,29 +30,44 @@ export const getMyApplication = (req, res) => {
   });
 };
 
+const DEPRECATED_ACADEMIC_FIELDS = ['board12', 'school12', 'year12', 'overall12Percent'];
+const stripDeprecatedAcademic = (academic) => {
+  if (!academic || typeof academic !== 'object') return academic;
+  const cleaned = { ...academic };
+  DEPRECATED_ACADEMIC_FIELDS.forEach(f => delete cleaned[f]);
+  return cleaned;
+};
+
 export const saveDraft = (req, res) => {
   const userId = req.user?.uid || req.body.userId || 'usr_draft_' + Date.now();
-  const { personal, academic, preferences, documents } = req.body;
+  const { personal, academic, preferences, documents, applicationId, id } = req.body;
+  const incomingId = applicationId || id;
+  const cleanAcademic = stripDeprecatedAcademic(academic);
 
-  let application = store.applications.find(a => a.userId === userId && a.status === 'DRAFT');
+  let application =
+    (incomingId && store.applications.find(a => a.id === incomingId)) ||
+    store.applications.find(a => a.userId === userId && a.status === 'DRAFT') ||
+    store.applications.find(a => a.userId === userId);
 
-  if (academic?.physicsMarks && academic?.chemistryMarks && academic?.mathMarks) {
-    academic.pcmPercentage = calculatePcmAggregate(
-      academic.physicsMarks,
-      academic.chemistryMarks,
-      academic.mathMarks
+  if (cleanAcademic?.physicsMarks && cleanAcademic?.chemistryMarks && cleanAcademic?.mathMarks) {
+    cleanAcademic.pcmPercentage = calculatePcmAggregate(
+      cleanAcademic.physicsMarks,
+      cleanAcademic.chemistryMarks,
+      cleanAcademic.mathMarks
     );
   }
 
   if (!application) {
-    const draftId = `IEM-2026-DRAFT-${Math.floor(1000 + Math.random() * 9000)}`;
+    const draftId = (incomingId && !String(incomingId).startsWith('IEM-2026-DRAFT-'))
+      ? incomingId
+      : `IEM-2026-DRAFT-${Math.floor(1000 + Math.random() * 9000)}`;
     application = {
       id: draftId,
       userId,
       status: 'DRAFT',
       lastSaved: new Date().toISOString(),
       personal: personal || {},
-      academic: academic || {},
+      academic: cleanAcademic || {},
       preferences: preferences || [],
       documents: documents || {},
       queries: [],
@@ -60,13 +76,31 @@ export const saveDraft = (req, res) => {
     store.applications.push(application);
   } else {
     application.personal = { ...application.personal, ...personal };
-    application.academic = { ...application.academic, ...academic };
+    application.academic = stripDeprecatedAcademic({ ...application.academic, ...cleanAcademic });
     if (preferences) application.preferences = preferences;
     if (documents) application.documents = { ...application.documents, ...documents };
     application.lastSaved = new Date().toISOString();
   }
 
   store.save();
+
+  if (firebaseDb) {
+    try {
+      const applicantName = application.personal?.fullName || '';
+      const email = application.personal?.email || '';
+      const phone = application.personal?.phone || '';
+      const cleanApp = { ...application };
+      delete cleanApp.data;
+      firebaseDb.collection('applications').doc(application.id).set({
+        ...cleanApp,
+        applicantName,
+        email,
+        phone,
+        data: JSON.stringify(cleanApp),
+        lastSyncedAt: new Date().toISOString()
+      }, { merge: true }).catch(() => {});
+    } catch (e) {}
+  }
 
   res.json({
     success: true,
@@ -77,28 +111,42 @@ export const saveDraft = (req, res) => {
 
 export const submitApplication = (req, res) => {
   const userId = req.user?.uid || req.body.userId || 'usr_submitted_' + Date.now();
-  const { personal, academic, preferences, documents } = req.body;
+  const { personal, academic, preferences, documents, applicationId, id, allottedBranch, allotmentDate, status: existingStatus } = req.body;
+  const incomingId = applicationId || id;
+  const cleanAcademic = stripDeprecatedAcademic(academic);
 
-  if (academic?.physicsMarks && academic?.chemistryMarks && academic?.mathMarks) {
-    academic.pcmPercentage = calculatePcmAggregate(
-      academic.physicsMarks,
-      academic.chemistryMarks,
-      academic.mathMarks
+  if (cleanAcademic?.physicsMarks && cleanAcademic?.chemistryMarks && cleanAcademic?.mathMarks) {
+    cleanAcademic.pcmPercentage = calculatePcmAggregate(
+      cleanAcademic.physicsMarks,
+      cleanAcademic.chemistryMarks,
+      cleanAcademic.mathMarks
     );
   }
 
-  let application = store.applications.find(a => a.userId === userId);
+  let application =
+    (incomingId && store.applications.find(a => a.id === incomingId)) ||
+    store.applications.find(a => a.userId === userId && a.id && !a.id.startsWith('IEM-2026-DRAFT-')) ||
+    store.applications.find(a => a.userId === userId);
 
-  const officialAppId = `IEM-2026-${Math.floor(1300 + Math.random() * 8000)}`;
+  const hasOfficialIncomingId = incomingId && !String(incomingId).startsWith('IEM-2026-DRAFT-');
+  const hasOfficialExistingId = application?.id && !String(application.id).startsWith('IEM-2026-DRAFT-');
+  const officialAppId = hasOfficialExistingId
+    ? application.id
+    : (hasOfficialIncomingId ? incomingId : `IEM-2026-${Math.floor(1300 + Math.random() * 8000)}`);
+
+  const PRESERVED_STATUSES = ['VERIFIED_ELIGIBLE', 'SEAT_OFFERED', 'ADMISSION_CONFIRMED', 'UNDER_REVIEW', 'WAITLISTED'];
 
   if (!application) {
+    const resolvedStatus = PRESERVED_STATUSES.includes(existingStatus) ? existingStatus : 'SUBMITTED';
     application = {
       id: officialAppId,
       userId,
-      status: 'SUBMITTED',
+      status: resolvedStatus,
       submissionDate: new Date().toISOString(),
+      ...(allottedBranch ? { allottedBranch } : {}),
+      ...(allotmentDate ? { allotmentDate } : {}),
       personal: personal || {},
-      academic: academic || {},
+      academic: cleanAcademic || {},
       preferences: preferences || ['CSE', 'IT', 'ECE'],
       documents: documents || {},
       queries: [],
@@ -109,24 +157,49 @@ export const submitApplication = (req, res) => {
     store.applications.push(application);
   } else {
     application.id = officialAppId;
-    application.status = 'SUBMITTED';
-    application.submissionDate = new Date().toISOString();
+    if (!PRESERVED_STATUSES.includes(application.status)) {
+      application.status = PRESERVED_STATUSES.includes(existingStatus) ? existingStatus : 'SUBMITTED';
+    }
+    if (!application.submissionDate) {
+      application.submissionDate = new Date().toISOString();
+    }
+    if (allottedBranch && !application.allottedBranch) application.allottedBranch = allottedBranch;
+    if (allotmentDate && !application.allotmentDate) application.allotmentDate = allotmentDate;
     application.personal = { ...application.personal, ...personal };
-    application.academic = { ...application.academic, ...academic };
+    application.academic = stripDeprecatedAcademic({ ...application.academic, ...cleanAcademic });
     if (preferences) application.preferences = preferences;
     if (documents) application.documents = { ...application.documents, ...documents };
+    application.history = application.history || [];
     application.history.push({
       timestamp: new Date().toISOString(),
-      event: `Application officially finalized and submitted as ${officialAppId}`,
+      event: `Application updated and submitted as ${officialAppId}`,
       actor: personal?.fullName || application.personal?.fullName || 'Applicant'
     });
   }
 
   store.save();
 
+  if (firebaseDb) {
+    try {
+      const applicantName = application.personal?.fullName || '';
+      const email = application.personal?.email || '';
+      const phone = application.personal?.phone || '';
+      const cleanApp = { ...application };
+      delete cleanApp.data;
+      firebaseDb.collection('applications').doc(application.id).set({
+        ...cleanApp,
+        applicantName,
+        email,
+        phone,
+        data: JSON.stringify(cleanApp),
+        lastSyncedAt: new Date().toISOString()
+      }, { merge: true }).catch(() => {});
+    } catch (e) {}
+  }
+
   res.status(201).json({
     success: true,
-    message: 'Application submitted successfully! Application ID generated.',
+    message: 'Application submitted successfully! Application ID preserved/generated.',
     applicationId: application.id,
     application
   });

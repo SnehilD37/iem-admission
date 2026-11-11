@@ -13,18 +13,10 @@ import {
   CreditCard, 
   Search, 
   Filter, 
-  Download, 
   Award, 
-  Sliders, 
   FileSpreadsheet, 
-  ExternalLink,
   Eye,
-  RefreshCw,
-  RotateCcw,
-  Flame,
-  Database,
-  CloudUpload,
-  Info
+  RefreshCw
 } from 'lucide-react';
 
 export const AdminPortal = () => {
@@ -36,16 +28,11 @@ export const AdminPortal = () => {
     setAdminFilters, 
     loadingAdmin, 
     refreshAdminData, 
-    resetAllDemoData,
-    showNotification,
-    firestoreStatus,
-    syncingFirebase,
-    syncAllToFirestore
+    showNotification
   } = useApplication();
 
   const [selectedAppForReview, setSelectedAppForReview] = useState(null);
   const [meritModalOpen, setMeritModalOpen] = useState(false);
-  const [showFirebaseGuide, setShowFirebaseGuide] = useState(false);
 
   // Search and filter handling
   const handleSearchChange = (e) => {
@@ -67,11 +54,11 @@ export const AdminPortal = () => {
   };
 
   const quotas = adminStats?.quotas || {
-    CSE: { name: 'Computer Science & Engineering', totalSeats: 120, allotted: 98, confirmed: 84 },
-    'CSE-AIML': { name: 'CSE (AI & ML)', totalSeats: 60, allotted: 54, confirmed: 48 },
-    IT: { name: 'Information Technology', totalSeats: 60, allotted: 45, confirmed: 38 },
-    CSBS: { name: 'CS & Business Systems', totalSeats: 60, allotted: 38, confirmed: 30 },
-    ECE: { name: 'Electronics & Comm. Engg.', totalSeats: 90, allotted: 62, confirmed: 50 }
+    CSE: { name: 'Computer Science & Engineering', totalSeats: 120, allotted: 0, confirmed: 0 },
+    'CSE-AIML': { name: 'CSE (AI & ML)', totalSeats: 60, allotted: 0, confirmed: 0 },
+    IT: { name: 'Information Technology', totalSeats: 60, allotted: 0, confirmed: 0 },
+    CSBS: { name: 'CS & Business Systems', totalSeats: 60, allotted: 0, confirmed: 0 },
+    ECE: { name: 'Electronics & Comm. Engg.', totalSeats: 90, allotted: 0, confirmed: 0 }
   };
 
   return (
@@ -120,118 +107,6 @@ export const AdminPortal = () => {
           </div>
         </div>
 
-        {/* Firebase Cloud Firestore Synchronization Banner */}
-        <div 
-          className="card" 
-          style={{ 
-            padding: '1rem 1.25rem', 
-            marginBottom: '1.5rem', 
-            background: firestoreStatus?.available 
-              ? 'linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%)' 
-              : 'linear-gradient(135deg, #FFFBEB 0%, #FFFFFF 100%)',
-            border: `1px solid ${firestoreStatus?.available ? '#BBF7D0' : '#FDE68A'}`,
-            borderRadius: '10px'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div 
-                style={{ 
-                  width: '40px', 
-                  height: '40px', 
-                  borderRadius: '10px', 
-                  background: firestoreStatus?.available ? '#DCFCE7' : '#FEF3C7', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  color: firestoreStatus?.available ? '#16A34A' : '#D97706',
-                  flexShrink: 0
-                }}
-              >
-                <Flame size={22} />
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#1E293B' }}>
-                    Firebase Cloud Storage & Document Database
-                  </span>
-                  <span 
-                    style={{ 
-                      fontSize: '0.7rem', 
-                      fontWeight: 700, 
-                      padding: '2px 8px', 
-                      borderRadius: '12px',
-                      background: firestoreStatus?.available ? '#16A34A' : '#D97706',
-                      color: '#FFFFFF'
-                    }}
-                  >
-                    {firestoreStatus?.available ? '● FIRESTORE CONNECTED' : '● FIREBASE READY'}
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
-                  {firestoreStatus?.available
-                    ? `All submitted applications are preserved in Firestore (Collection: 'applications'). Live count: ${firestoreStatus.count || adminApplications.length} records.`
-                    : `Student applications are securely tracked in the Central Admissions Store and sync ready for Firebase Cloud Firestore.`
-                  }
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                onClick={syncAllToFirestore}
-                disabled={syncingFirebase}
-                className="btn btn-outline btn-sm"
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '6px', 
-                  fontSize: '0.78rem', 
-                  borderColor: firestoreStatus?.available ? '#86EFAC' : '#FCD34D' 
-                }}
-              >
-                <CloudUpload size={14} className={syncingFirebase ? 'spin' : ''} />
-                <span>{syncingFirebase ? 'Syncing...' : 'Sync to Firebase'}</span>
-              </button>
-
-              <button
-                onClick={() => setShowFirebaseGuide(!showFirebaseGuide)}
-                className="btn btn-outline btn-sm"
-                style={{ padding: '6px 8px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                title="View Firebase connection details"
-              >
-                <Info size={14} />
-                <span>{showFirebaseGuide ? 'Hide Info' : 'Details'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Expandable Firebase Info Guide */}
-          {showFirebaseGuide && (
-            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed #E2E8F0', fontSize: '0.8rem', color: '#475569' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-                <div style={{ background: '#FFFFFF', padding: '10px 14px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                  <strong style={{ color: 'var(--primary)' }}>Project ID:</strong>
-                  <div className="font-mono" style={{ fontSize: '0.75rem', marginTop: '2px' }}>iem-admission</div>
-                </div>
-                <div style={{ background: '#FFFFFF', padding: '10px 14px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                  <strong style={{ color: 'var(--primary)' }}>Firestore Collection:</strong>
-                  <div className="font-mono" style={{ fontSize: '0.75rem', marginTop: '2px' }}>applications / [app_id]</div>
-                </div>
-                <div style={{ background: '#FFFFFF', padding: '10px 14px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                  <strong style={{ color: 'var(--primary)' }}>Document Verification Access:</strong>
-                  <div style={{ fontSize: '0.75rem', marginTop: '2px' }}>Full candidate profile, marks, certificates, and status logs</div>
-                </div>
-              </div>
-              {firestoreStatus?.provisioningNeeded && (
-                <div style={{ marginTop: '0.75rem', padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '0.75rem', color: '#991B1B' }}>
-                  💡 <strong>To activate Cloud Firestore in Google Console:</strong> Go to <a href="https://console.firebase.google.com/project/iem-admission/firestore" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline', fontWeight: 700 }}>Firebase Console (iem-admission)</a> → <strong>Build</strong> → <strong>Firestore Database</strong> → click <strong>Create database</strong> (choose Test Mode). The portal will immediately mirror all live submissions directly to the cloud!
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
         {/* 1. Command Center Statistics Cards */}
         <div className="grid grid-cols-5 md-col-1 gap-4" style={{ marginBottom: '2rem' }}>
           <div className="card" style={{ padding: '1.25rem', background: '#FFFFFF' }}>
@@ -240,7 +115,7 @@ export const AdminPortal = () => {
               <Users size={18} color="var(--primary)" />
             </div>
             <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--secondary)', marginTop: '4px' }}>
-              {adminStats?.total ?? 5}
+              {adminStats?.total ?? 0}
             </div>
             <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '2px' }}>
               Phase-1 Intake Active
@@ -253,7 +128,7 @@ export const AdminPortal = () => {
               <Clock size={18} color="var(--warning)" />
             </div>
             <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--warning)', marginTop: '4px' }}>
-              {adminStats?.pendingScrutiny ?? 1}
+              {adminStats?.pendingScrutiny ?? 0}
             </div>
             <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '2px' }}>
               Awaiting officer verification
@@ -266,7 +141,7 @@ export const AdminPortal = () => {
               <AlertTriangle size={18} color="var(--destructive)" />
             </div>
             <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--destructive)', marginTop: '4px' }}>
-              {adminStats?.activeQueries ?? 1}
+              {adminStats?.activeQueries ?? 0}
             </div>
             <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '2px' }}>
               Discrepancy flags awaiting student
@@ -279,7 +154,7 @@ export const AdminPortal = () => {
               <CheckCircle size={18} color="var(--success)" />
             </div>
             <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--success)', marginTop: '4px' }}>
-              {adminStats?.confirmedAdmissions ?? 1}
+              {adminStats?.confirmedAdmissions ?? 0}
             </div>
             <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '2px' }}>
               Fees processed & IDs issued
@@ -292,7 +167,7 @@ export const AdminPortal = () => {
               <CreditCard size={18} color="#1E3A8A" />
             </div>
             <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1E3A8A', marginTop: '4px' }}>
-              ₹{((adminStats?.totalFeesCollected || 85000)).toLocaleString('en-IN')}
+              ₹{((adminStats?.totalFeesCollected ?? 0)).toLocaleString('en-IN')}
             </div>
             <div style={{ fontSize: '0.7rem', color: '#3B82F6', marginTop: '2px' }}>
               via Razorpay Gateway
@@ -363,6 +238,7 @@ export const AdminPortal = () => {
                   style={{ width: '160px', padding: '6px 10px', fontSize: '0.8rem' }}
                 >
                   <option value="ALL">All Statuses</option>
+                  <option value="DRAFT">Draft</option>
                   <option value="SUBMITTED">Submitted</option>
                   <option value="UNDER_REVIEW">Under Review</option>
                   <option value="ACTION_REQUIRED">Query Pending</option>
@@ -416,9 +292,6 @@ export const AdminPortal = () => {
                         <span className="font-mono" style={{ fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 6px', borderRadius: '4px' }}>
                           {app.id}
                         </span>
-                        <span title="Stored & sync-ready for Firebase Firestore" style={{ display: 'inline-flex', color: '#F59E0B' }}>
-                          <Flame size={13} />
-                        </span>
                       </div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
@@ -446,13 +319,15 @@ export const AdminPortal = () => {
                       <StatusBadge status={app.status} />
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                      <button
-                        onClick={() => setSelectedAppForReview(app)}
-                        className="btn btn-outline btn-sm"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
-                      >
-                        <Eye size={14} /> Review & Verify
-                      </button>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                        <button
+                          onClick={() => setSelectedAppForReview(app)}
+                          className="btn btn-outline btn-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}
+                        >
+                          <Eye size={13} /> Review
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -462,7 +337,7 @@ export const AdminPortal = () => {
 
           {/* Table Footer */}
           <div style={{ padding: '10px 16px', background: '#F8FAFC', borderTop: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--muted)' }}>
-            <span>Showing {(Array.isArray(adminApplications) ? adminApplications : []).length} candidate application records • Stored in Firebase Firestore & IEM Central Database</span>
+            <span>Showing {(Array.isArray(adminApplications) ? adminApplications : []).length} candidate application records • Live Firebase Cloud Records</span>
             <span>IEM Central Admission Scrutiny Protocol</span>
           </div>
 

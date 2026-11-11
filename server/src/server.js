@@ -27,7 +27,15 @@ app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(morgan('dev'));
 
-// Health & Status
+// Root & Health Status (used by Render health checks)
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    system: 'IEM Admission System API (DevForge)',
+    health: '/api/health'
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',

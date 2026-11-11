@@ -21,7 +21,7 @@ import { useApplication } from '../../context/ApplicationContext';
 import StatusBadge from '../common/StatusBadge';
 
 export const SplitScreenVerification = ({ application, onClose, onUpdated }) => {
-  const { showNotification } = useApplication();
+  const { showNotification, updateCandidateDataByAdmin } = useApplication();
   
   // Document viewer controls
   const [selectedDocKey, setSelectedDocKey] = useState('marksheet12');
@@ -31,7 +31,8 @@ export const SplitScreenVerification = ({ application, onClose, onUpdated }) => 
   // Action states
   const [queryModalOpen, setQueryModalOpen] = useState(false);
   const [queryMessage, setQueryMessage] = useState('Uploaded Class 12 marksheet is illegible. Please re-upload a clean, high-resolution original scan.');
-  const [selectedBranch, setSelectedBranch] = useState(application?.preferences?.[0] || 'CSE');
+  const [selectedBranch, setSelectedBranch] = useState(application?.allottedBranch || application?.preferences?.[0] || 'CSE');
+  const [selectedStatus, setSelectedStatus] = useState(application?.status || 'SUBMITTED');
   const [processing, setProcessing] = useState(false);
 
   if (!application) return null;
@@ -73,21 +74,31 @@ export const SplitScreenVerification = ({ application, onClose, onUpdated }) => 
   const handleApprove = async () => {
     setProcessing(true);
     try {
-      const res = await adminApi.updateStatus(application.id, {
+      try {
+        await adminApi.updateStatus(application.id, {
+          status: 'VERIFIED_ELIGIBLE',
+          note: 'All academic credentials and uploaded marksheets verified successfully.'
+        });
+      } catch (_) {}
+
+      const historyEntry = {
+        timestamp: new Date().toISOString(),
+        event: 'All academic credentials and uploaded marksheets verified successfully.',
+        actor: 'Admission Officer (Scrutiny Committee)'
+      };
+      const updatedApp = {
+        ...application,
         status: 'VERIFIED_ELIGIBLE',
-        note: 'All academic credentials and uploaded marksheets verified successfully.'
-      });
-      if (res.data.success) {
-        updateLocalAppStatus(application.id, 'VERIFIED_ELIGIBLE', 'All academic credentials and uploaded marksheets verified successfully.', 'Admission Officer (Scrutiny Committee)');
-        firestoreService.updateStatus(application.id, 'VERIFIED_ELIGIBLE', {
-          timestamp: new Date().toISOString(),
-          event: 'All academic credentials and uploaded marksheets verified successfully.',
-          actor: 'Admission Officer (Scrutiny Committee)'
-        }).catch(e => console.warn('Firestore update note:', e.message));
-        showNotification(`Application ${application.id} verified and marked eligible!`, 'success');
-        onUpdated();
-        onClose();
+        history: [...(application.history || []), historyEntry]
+      };
+      const fsRes = await firestoreService.saveApplication(updatedApp);
+      if (!fsRes.cloud) {
+        throw new Error(fsRes.error || 'Could not update Firebase Firestore');
       }
+      updateLocalAppStatus(application.id, 'VERIFIED_ELIGIBLE', historyEntry.event, historyEntry.actor);
+      showNotification(`Application ${application.id} verified and marked eligible!`, 'success');
+      onUpdated();
+      onClose();
     } catch (err) {
       showNotification('Error verifying application: ' + err.message, 'error');
     } finally {
@@ -100,23 +111,43 @@ export const SplitScreenVerification = ({ application, onClose, onUpdated }) => 
     e.preventDefault();
     setProcessing(true);
     try {
-      const res = await adminApi.raiseQuery(application.id, {
-        documentField: selectedDocKey,
+      try {
+        await adminApi.raiseQuery(application.id, {
+          documentField: selectedDocKey,
+          message: queryMessage,
+          officerName: 'Prof. A. K. Banerjee (Scrutiny Committee)'
+        });
+      } catch (_) {}
+
+      const newQuery = {
+        id: `qry_${Date.now()}`,
+        field: selectedDocKey || 'Class 12 Marksheet',
+        officer: 'Prof. A. K. Banerjee (Scrutiny Committee)',
         message: queryMessage,
-        officerName: 'Prof. A. K. Banerjee (Scrutiny Committee)'
-      });
-      if (res.data.success) {
-        updateLocalAppStatus(application.id, 'ACTION_REQUIRED', `Discrepancy query raised on ${selectedDocKey}: ${queryMessage}`, 'Prof. A. K. Banerjee (Scrutiny Committee)');
-        firestoreService.updateStatus(application.id, 'ACTION_REQUIRED', {
-          timestamp: new Date().toISOString(),
-          event: `Discrepancy query raised on ${selectedDocKey}: ${queryMessage}`,
-          actor: 'Prof. A. K. Banerjee (Scrutiny Committee)'
-        }).catch(e => console.warn('Firestore update note:', e.message));
-        showNotification(`Discrepancy query dispatched to student portal for ${application.id}`, 'success');
-        setQueryModalOpen(false);
-        onUpdated();
-        onClose();
+        timestamp: new Date().toISOString(),
+        status: 'PENDING_STUDENT_RESPONSE',
+        responses: []
+      };
+      const historyEntry = {
+        timestamp: new Date().toISOString(),
+        event: `Discrepancy query raised on ${selectedDocKey}: ${queryMessage}`,
+        actor: 'Prof. A. K. Banerjee (Scrutiny Committee)'
+      };
+      const updatedApp = {
+        ...application,
+        status: 'ACTION_REQUIRED',
+        queries: [...(application.queries || []), newQuery],
+        history: [...(application.history || []), historyEntry]
+      };
+      const fsRes = await firestoreService.saveApplication(updatedApp);
+      if (!fsRes.cloud) {
+        throw new Error(fsRes.error || 'Could not update Firebase Firestore');
       }
+      updateLocalAppStatus(application.id, 'ACTION_REQUIRED', historyEntry.event, historyEntry.actor);
+      showNotification(`Discrepancy query dispatched to student portal for ${application.id}`, 'success');
+      setQueryModalOpen(false);
+      onUpdated();
+      onClose();
     } catch (err) {
       showNotification('Error raising query: ' + err.message, 'error');
     } finally {
@@ -128,23 +159,55 @@ export const SplitScreenVerification = ({ application, onClose, onUpdated }) => 
   const handleOfferSeat = async () => {
     setProcessing(true);
     try {
-      const res = await adminApi.offerSeat(application.id, {
-        branch: selectedBranch,
-        round: 'Round 1'
-      });
-      if (res.data.success) {
-        updateLocalAppStatus(application.id, 'SEAT_OFFERED', `Provisional admission seat offered in ${selectedBranch} (Round 1)`, 'Central Allotment Engine');
-        firestoreService.updateStatus(application.id, 'SEAT_OFFERED', {
-          timestamp: new Date().toISOString(),
-          event: `Provisional admission seat offered in ${selectedBranch} (Round 1)`,
-          actor: 'Central Allotment Engine'
-        }).catch(e => console.warn('Firestore update note:', e.message));
-        showNotification(`Seat in ${selectedBranch} offered to ${application.personal?.fullName}!`, 'success');
-        onUpdated();
-        onClose();
+      try {
+        await adminApi.offerSeat(application.id, {
+          branch: selectedBranch,
+          round: 'Round 1'
+        });
+      } catch (_) {}
+
+      const historyEntry = {
+        timestamp: new Date().toISOString(),
+        event: `Provisional admission seat offered in ${selectedBranch} (Round 1)`,
+        actor: 'Central Allotment Engine'
+      };
+      const updatedApp = {
+        ...application,
+        status: 'SEAT_OFFERED',
+        allottedBranch: selectedBranch,
+        allotmentDate: application.allotmentDate || new Date().toISOString(),
+        history: [...(application.history || []), historyEntry]
+      };
+      const fsRes = await firestoreService.saveApplication(updatedApp);
+      if (!fsRes.cloud) {
+        throw new Error(fsRes.error || 'Could not update Firebase Firestore');
       }
+      updateLocalAppStatus(application.id, 'SEAT_OFFERED', historyEntry.event, historyEntry.actor);
+      showNotification(`Seat in ${selectedBranch} offered to ${application.personal?.fullName || application.id}!`, 'success');
+      onUpdated();
+      onClose();
     } catch (err) {
       showNotification('Error offering seat: ' + err.message, 'error');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Action: Direct Allotment Status Update
+  const handleUpdateAllotmentStatus = async () => {
+    setProcessing(true);
+    try {
+      const isAllottedStatus = selectedStatus === 'SEAT_OFFERED' || selectedStatus === 'ADMISSION_CONFIRMED';
+      const branchToSave = isAllottedStatus ? selectedBranch : (application?.allottedBranch || null);
+      await updateCandidateDataByAdmin(application.id, {
+        status: selectedStatus,
+        allottedBranch: branchToSave,
+        note: `Allotment status updated to ${selectedStatus}${branchToSave ? ` (${branchToSave})` : ''}`
+      });
+      onUpdated();
+      onClose();
+    } catch (err) {
+      showNotification('Error updating allotment status: ' + err.message, 'error');
     } finally {
       setProcessing(false);
     }
@@ -155,21 +218,31 @@ export const SplitScreenVerification = ({ application, onClose, onUpdated }) => 
     if (!window.confirm('Are you sure you want to mark this application as Ineligible / Rejected?')) return;
     setProcessing(true);
     try {
-      const res = await adminApi.updateStatus(application.id, {
+      try {
+        await adminApi.updateStatus(application.id, {
+          status: 'REJECTED',
+          note: 'Minimum academic or rank eligibility criteria not fulfilled.'
+        });
+      } catch (_) {}
+
+      const historyEntry = {
+        timestamp: new Date().toISOString(),
+        event: 'Application marked ineligible / rejected',
+        actor: 'Admission Officer'
+      };
+      const updatedApp = {
+        ...application,
         status: 'REJECTED',
-        note: 'Minimum academic or rank eligibility criteria not fulfilled.'
-      });
-      if (res.data.success) {
-        updateLocalAppStatus(application.id, 'REJECTED', 'Application marked ineligible / rejected', 'Admission Officer');
-        firestoreService.updateStatus(application.id, 'REJECTED', {
-          timestamp: new Date().toISOString(),
-          event: 'Application marked ineligible / rejected',
-          actor: 'Admission Officer'
-        }).catch(e => console.warn('Firestore update note:', e.message));
-        showNotification(`Application ${application.id} marked as Ineligible`, 'success');
-        onUpdated();
-        onClose();
+        history: [...(application.history || []), historyEntry]
+      };
+      const fsRes = await firestoreService.saveApplication(updatedApp);
+      if (!fsRes.cloud) {
+        throw new Error(fsRes.error || 'Could not update Firebase Firestore');
       }
+      updateLocalAppStatus(application.id, 'REJECTED', historyEntry.event, historyEntry.actor);
+      showNotification(`Application ${application.id} marked as Ineligible`, 'success');
+      onUpdated();
+      onClose();
     } catch (err) {
       showNotification('Error rejecting application: ' + err.message, 'error');
     } finally {
@@ -244,8 +317,8 @@ export const SplitScreenVerification = ({ application, onClose, onUpdated }) => 
               <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
                 <tbody>
                   <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
-                    <td style={{ padding: '6px 0', color: 'var(--muted)' }}>Class 12 Board & School:</td>
-                    <td style={{ padding: '6px 0', fontWeight: 600 }}>{application.academic?.board12} — {application.academic?.school12 || 'Recognized Council'}</td>
+                    <td style={{ padding: '6px 0', color: 'var(--muted)' }}>Class 10 Board & School:</td>
+                    <td style={{ padding: '6px 0', fontWeight: 600 }}>{application.academic?.board10} — {application.academic?.school10 || 'Recognized Institution'}</td>
                   </tr>
                   <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
                     <td style={{ padding: '6px 0', color: 'var(--muted)' }}>Subject Marks (P / C / M):</td>
@@ -370,13 +443,13 @@ export const SplitScreenVerification = ({ application, onClose, onUpdated }) => 
 
         {/* Scrutiny Action Bar (Bottom Footer) */}
         <div style={{ padding: '1rem 1.5rem', background: '#FFFFFF', borderTop: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600 }}>Allocate Branch:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600 }}>Branch:</span>
             <select
               value={selectedBranch}
               onChange={e => setSelectedBranch(e.target.value)}
               className="form-select"
-              style={{ width: '130px', padding: '4px 8px', fontSize: '0.8rem' }}
+              style={{ width: '120px', padding: '4px 8px', fontSize: '0.8rem' }}
             >
               <option value="CSE">CSE</option>
               <option value="CSE-AIML">CSE-AIML</option>
@@ -384,9 +457,34 @@ export const SplitScreenVerification = ({ application, onClose, onUpdated }) => 
               <option value="CSBS">CSBS</option>
               <option value="ECE">ECE</option>
             </select>
+
+            <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600, marginLeft: '6px' }}>Allotment Status:</span>
+            <select
+              value={selectedStatus}
+              onChange={e => setSelectedStatus(e.target.value)}
+              className="form-select"
+              style={{ width: '185px', padding: '4px 8px', fontSize: '0.8rem' }}
+            >
+              <option value="SUBMITTED">SUBMITTED</option>
+              <option value="UNDER_REVIEW">UNDER_REVIEW</option>
+              <option value="ACTION_REQUIRED">ACTION_REQUIRED</option>
+              <option value="VERIFIED_ELIGIBLE">VERIFIED_ELIGIBLE</option>
+              <option value="SEAT_OFFERED">SEAT_OFFERED</option>
+              <option value="ADMISSION_CONFIRMED">ADMISSION_CONFIRMED</option>
+              <option value="WAITLISTED">WAITLISTED</option>
+              <option value="REJECTED">REJECTED</option>
+            </select>
+            <button
+              onClick={handleUpdateAllotmentStatus}
+              disabled={processing}
+              className="btn btn-outline btn-sm"
+              style={{ fontWeight: 600 }}
+            >
+              Update Status
+            </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <button
               onClick={handleReject}
               disabled={processing}

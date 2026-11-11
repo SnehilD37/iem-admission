@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+const API_BASE_URL = rawApiUrl
+  ? (rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`)
+  : '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -43,6 +46,7 @@ export const adminApi = {
   getApplications: (params) => api.get('/admin/applications', { params }),
   getApplicationById: (id) => api.get(`/admin/applications/${id}`),
   updateStatus: (id, data) => api.patch(`/admin/applications/${id}/status`, data),
+  updateApplicationData: (id, data) => api.put(`/admin/applications/${id}`, data),
   raiseQuery: (id, data) => api.post(`/admin/applications/${id}/raise-query`, data),
   offerSeat: (id, data) => api.post(`/admin/applications/${id}/offer-seat`, data),
   getRosterExportUrl: () => `${API_BASE_URL}/admin/export-roster`

@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { X, Lock, Mail, User, ShieldCheck, GraduationCap, Check } from 'lucide-react';
 
 export const AuthModal = ({ isOpen, onClose, initialRole = 'student' }) => {
-  const { loginCustom, loginWithGoogle, register, loginAsDemo, demoUsers } = useAuth();
+  const { loginCustom, loginWithGoogle, register } = useAuth();
   const [activeTab, setActiveTab] = useState(initialRole === 'admin' ? 'admin' : 'login'); // 'login' | 'register' | 'admin'
   
   const [email, setEmail] = useState('');
@@ -64,15 +64,6 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'student' }) => {
       onClose();
     } else {
       setError(res.error || 'Admin verification failed');
-    }
-  };
-
-  const handleDemoSelect = async (uid) => {
-    setLoading(true);
-    const res = await loginAsDemo(uid);
-    setLoading(false);
-    if (res.success) {
-      onClose();
     }
   };
 
@@ -357,37 +348,6 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'student' }) => {
                   : 'Sign In with Google'}
             </span>
           </button>
-
-          {/* Quick Demo Fill Section */}
-          <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px dashed var(--card-border)' }}>
-            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              ⚡ 1-Click Instant Demo Profiles
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
-              {demoUsers.map((u) => (
-                <button
-                  key={u.uid}
-                  type="button"
-                  onClick={() => handleDemoSelect(u.uid)}
-                  className="btn-outline"
-                  style={{
-                    padding: '6px 8px',
-                    fontSize: '0.75rem',
-                    textAlign: 'left',
-                    justifyContent: 'flex-start',
-                    borderRadius: '6px'
-                  }}
-                >
-                  <span style={{ fontWeight: 600, color: u.role === 'admin' ? 'var(--primary)' : 'var(--secondary)' }}>
-                    {u.name.split(' ')[0]}
-                  </span>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--muted)', marginLeft: 'auto' }}>
-                    {u.role === 'admin' ? '🛡️ Admin' : u.applicationId ? u.applicationId.slice(-4) : 'User'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

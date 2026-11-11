@@ -1,4 +1,6 @@
 import { store, BRANCH_QUOTAS } from '../data/initialStore.js';
+import { calculatePcmAggregate } from '../utils/meritCalculator.js';
+import { firebaseDb } from '../config/firebaseAdmin.js';
 
 export const getDashboardStats = (req, res) => {
   const apps = store.applications;
@@ -172,6 +174,98 @@ export const offerSeat = (req, res) => {
   res.json({
     success: true,
     message: `Seat offered in ${allocatedBranch} successfully!`,
+    application
+  });
+};
+
+export const updateApplicationData = async (req, res) => {
+  const { id } = req.params;
+  const { personal, academic, allottedBranch, status, preferences, note, officerName } = req.body;
+
+  const application = store.applications.find(a => a.id === id);
+  if (!application) {
+    return res.status(404).json({ success: false, message: 'Application record not found' });
+  }
+
+  // Handle branch change / initial allotment / clearing allotment
+  if (allottedBranch !== undefined && allottedBranch !== application.allottedBranch) {
+    const oldBranch = application.allottedBranch;
+    application.allottedBranch = allottedBranch || null;
+    if (allottedBranch && !application.allotmentDate) {
+      application.allotmentDate = new Date().toISOString();
+    } else if (!allottedBranch) {
+      application.allotmentDate = null;
+    }
+    // Update quotas
+    if (allottedBranch && store.quotas[allottedBranch]) {
+      store.quotas[allottedBranch].allotted = (store.quotas[allottedBranch].allotted || 0) + 1;
+    }
+    if (oldBranch && store.quotas[oldBranch] && store.quotas[oldBranch].allotted > 0) {
+      store.quotas[oldBranch].allotted -= 1;
+    }
+  }
+
+  // Update personal details
+  if (personal) {
+    application.personal = { ...application.personal, ...personal };
+  }
+
+  // Update academic details
+  if (academic) {
+    if (academic.physicsMarks && academic.chemistryMarks && academic.mathMarks) {
+      academic.pcmPercentage = calculatePcmAggregate(
+        academic.physicsMarks,
+        academic.chemistryMarks,
+        academic.mathMarks
+      );
+    }
+    application.academic = { ...application.academic, ...academic };
+  }
+
+  // Update status if provided
+  if (status) {
+    application.status = status;
+  }
+
+  // Update preferences if provided
+  if (preferences) {
+    application.preferences = preferences;
+  }
+
+  const actor = officerName || req.user?.name || 'Scrutiny Officer';
+  application.history = application.history || [];
+  application.history.push({
+    timestamp: new Date().toISOString(),
+    event: `Candidate profile & branch allotment updated by Admin (${actor})${note ? `: ${note}` : ''}`,
+    actor
+  });
+
+  store.save();
+
+  // Also sync to Cloud Firestore if initialized
+  if (firebaseDb) {
+    try {
+      const applicantName = application.personal?.fullName || '';
+      const email = application.personal?.email || '';
+      const phone = application.personal?.phone || '';
+      const cleanApp = { ...application };
+      delete cleanApp.data;
+      await firebaseDb.collection('applications').doc(application.id).set({
+        ...cleanApp,
+        applicantName,
+        email,
+        phone,
+        data: JSON.stringify(cleanApp),
+        lastSyncedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {
+      // safe ignore if cloud credentials not present in this process
+    }
+  }
+
+  res.json({
+    success: true,
+    message: 'Candidate data successfully updated in database and admissions roster',
     application
   });
 };
