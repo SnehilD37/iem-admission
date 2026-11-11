@@ -257,36 +257,60 @@ export const ApplicationWizard = ({ onComplete }) => {
     );
   };
 
-  const handlePercent10Change = (val) => {
+  const handlePercentChange = (field, val) => {
     if (val === '') {
-      setAcademic(prev => ({ ...prev, percent10: '' }));
+      setAcademic(prev => ({ ...prev, [field]: '' }));
       return;
     }
     const num = parseFloat(val);
     if (isNaN(num)) return;
     if (num > 100) {
-      setAcademic(prev => ({ ...prev, percent10: 100 }));
+      setAcademic(prev => ({ ...prev, [field]: 100 }));
     } else if (num < 0) {
-      setAcademic(prev => ({ ...prev, percent10: 0 }));
+      setAcademic(prev => ({ ...prev, [field]: 0 }));
     } else {
-      setAcademic(prev => ({ ...prev, percent10: val }));
+      setAcademic(prev => ({ ...prev, [field]: val }));
     }
   };
 
-  const handlePercent12Change = (val) => {
-    if (val === '') {
-      setAcademic(prev => ({ ...prev, percent12: '' }));
-      return;
-    }
-    const num = parseFloat(val);
-    if (isNaN(num)) return;
-    if (num > 100) {
-      setAcademic(prev => ({ ...prev, percent12: 100 }));
-    } else if (num < 0) {
-      setAcademic(prev => ({ ...prev, percent12: 0 }));
-    } else {
-      setAcademic(prev => ({ ...prev, percent12: val }));
-    }
+  const renderPercentField = (field) => {
+    const val = academic[field];
+    const num = Number(val);
+    const isBelowMin = val !== '' && !isNaN(num) && num < 40;
+    const isAboveMax = val !== '' && !isNaN(num) && num > 100;
+    const isInvalid = isBelowMin || isAboveMax || (val !== '' && num < 0);
+    return (
+      <div className="form-group" style={{ marginBottom: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <label className="form-label" style={{ marginBottom: 0 }}>Aggregate %</label>
+          <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Min 40% • Max 100%</span>
+        </div>
+        <input
+          type="number"
+          min="0"
+          max="100"
+          step="0.01"
+          value={val}
+          onChange={e => handlePercentChange(field, e.target.value)}
+          className="form-input"
+          style={{
+            marginTop: '4px',
+            borderColor: isInvalid ? 'var(--destructive)' : undefined
+          }}
+          placeholder="Enter %"
+        />
+        {isBelowMin && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block', fontWeight: 600 }}>
+            ⚠ Ineligible (Minimum 40% required)
+          </span>
+        )}
+        {isAboveMax && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
+            ⚠ Percentage cannot exceed 100%
+          </span>
+        )}
+      </div>
+    );
   };
 
   const handleFileUpload = (docKey, e) => {
@@ -377,9 +401,9 @@ export const ApplicationWizard = ({ onComplete }) => {
       const isExamRollValid = Boolean(academic.examRoll && academic.examRoll.length === 10);
       const isExamRankValid = Boolean(academic.examRank && Number(academic.examRank) > 0);
       const isYearValid = !academic.year10 || (String(academic.year10).length === 4 && Number(academic.year10) <= currentYear);
-      const isPercent10Valid = academic.percent10 === '' || (Number(academic.percent10) >= 0 && Number(academic.percent10) <= 100);
+      const isPercent10Valid = academic.percent10 === '' || (Number(academic.percent10) >= 40 && Number(academic.percent10) <= 100);
       const isYear12Valid = !academic.year12 || (String(academic.year12).length === 4 && Number(academic.year12) <= currentYear);
-      const isPercent12Valid = academic.percent12 === '' || (Number(academic.percent12) >= 0 && Number(academic.percent12) <= 100);
+      const isPercent12Valid = academic.percent12 === '' || (Number(academic.percent12) >= 40 && Number(academic.percent12) <= 100);
 
       return Boolean(
         areMarksFilled &&
@@ -450,7 +474,11 @@ export const ApplicationWizard = ({ onComplete }) => {
       }
     }
     if (currentStep === 2) {
-      if (academic.percent10 !== '' && (Number(academic.percent10) < 0 || Number(academic.percent10) > 100)) {
+      if (academic.percent10 !== '' && Number(academic.percent10) < 40) {
+        setErrorMsg('Ineligible: Class 10 Aggregate % must be at least 40%.');
+        return;
+      }
+      if (academic.percent10 !== '' && Number(academic.percent10) > 100) {
         setErrorMsg('Class 10 Aggregate % cannot exceed 100%.');
         return;
       }
@@ -490,7 +518,11 @@ export const ApplicationWizard = ({ onComplete }) => {
         setErrorMsg(`Class 12 Year of Passing cannot exceed ${currentYear}.`);
         return;
       }
-      if (academic.percent12 !== '' && (Number(academic.percent12) < 0 || Number(academic.percent12) > 100)) {
+      if (academic.percent12 !== '' && Number(academic.percent12) < 40) {
+        setErrorMsg('Ineligible: Class 12 Aggregate % must be at least 40%.');
+        return;
+      }
+      if (academic.percent12 !== '' && Number(academic.percent12) > 100) {
         setErrorMsg('Class 12 Aggregate % cannot exceed 100%.');
         return;
       }
@@ -881,31 +913,7 @@ export const ApplicationWizard = ({ onComplete }) => {
 
                 {renderYearField('year10', 'e.g. 2024')}
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label className="form-label" style={{ marginBottom: 0 }}>Aggregate %</label>
-                    <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Max 100%</span>
-                  </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={academic.percent10}
-                    onChange={e => handlePercent10Change(e.target.value)}
-                    className="form-input"
-                    style={{
-                      marginTop: '4px',
-                      borderColor: academic.percent10 !== '' && (Number(academic.percent10) < 0 || Number(academic.percent10) > 100) ? 'var(--destructive)' : undefined
-                    }}
-                    placeholder="Enter %"
-                  />
-                  {academic.percent10 !== '' && Number(academic.percent10) > 100 && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
-                      ⚠ Percentage cannot exceed 100%
-                    </span>
-                  )}
-                </div>
+                {renderPercentField('percent10')}
               </div>
             </div>
 
@@ -944,31 +952,7 @@ export const ApplicationWizard = ({ onComplete }) => {
 
                 {renderYearField('year12', `e.g. ${currentYear}`)}
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label className="form-label" style={{ marginBottom: 0 }}>Aggregate %</label>
-                    <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Max 100%</span>
-                  </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={academic.percent12}
-                    onChange={e => handlePercent12Change(e.target.value)}
-                    className="form-input"
-                    style={{
-                      marginTop: '4px',
-                      borderColor: academic.percent12 !== '' && (Number(academic.percent12) < 0 || Number(academic.percent12) > 100) ? 'var(--destructive)' : undefined
-                    }}
-                    placeholder="Enter %"
-                  />
-                  {academic.percent12 !== '' && Number(academic.percent12) > 100 && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
-                      ⚠ Percentage cannot exceed 100%
-                    </span>
-                  )}
-                </div>
+                {renderPercentField('percent12')}
               </div>
             </div>
 
