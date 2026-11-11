@@ -283,7 +283,7 @@ export const ApplicationWizard = ({ onComplete }) => {
       <div className="form-group" style={{ marginBottom: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <label className="form-label" style={{ marginBottom: 0 }}>Aggregate %</label>
-          <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Min 40% • Max 100%</span>
+          <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Min 40%</span>
         </div>
         <input
           type="number"
