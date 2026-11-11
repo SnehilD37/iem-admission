@@ -1,14 +1,16 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { 
-  LogOut
+  LogOut,
+  ShieldCheck,
+  GraduationCap
 } from 'lucide-react';
 
 
 export const Navbar = () => {
-  const { user, role, logout } = useAuth();
+  const { user, role, canAccessAdmin, switchRole, logout } = useAuth();
 
-  const isAdmin = role === 'admin' || user?.role === 'admin';
+  const isAdmin = canAccessAdmin && role === 'admin';
 
   return (
     <>
@@ -53,8 +55,28 @@ export const Navbar = () => {
             </div>
           </div>
 
-          {/* Right Action: User identity & Logout */}
+          {/* Right Action: Portal Switch (Admins only), User identity & Logout */}
           <div className="flex items-center gap-3">
+            {canAccessAdmin && (
+              <button
+                onClick={() => switchRole(isAdmin ? 'student' : 'admin')}
+                className="btn btn-outline btn-sm"
+                title={isAdmin ? 'Switch to Student Portal' : 'Switch to Admin Scrutiny Desk'}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.78rem',
+                  borderColor: isAdmin ? 'var(--accent)' : 'var(--secondary)',
+                  color: isAdmin ? 'var(--primary)' : 'var(--secondary)'
+                }}
+              >
+                {isAdmin ? <GraduationCap size={15} /> : <ShieldCheck size={15} />}
+                <span>{isAdmin ? 'Student Portal' : 'Admin Portal'}</span>
+              </button>
+            )}
+
             {/* User Profile Pill */}
             {user && (
               <div style={{

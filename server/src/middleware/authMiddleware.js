@@ -1,4 +1,5 @@
 import { firebaseAuth } from '../config/firebaseAdmin.js';
+import { isAuthorizedAdmin } from '../config/adminConfig.js';
 
 export const verifyToken = async (req, res, next) => {
   try {
@@ -29,10 +30,8 @@ export const requireAdmin = (req, res, next) => {
     return res.status(401).json({ success: false, message: 'Unauthenticated user' });
   }
 
-  // Check admin role flag
-  const isAdmin = req.user.role === 'admin' || 
-                  req.user.email?.includes('admin') || 
-                  req.headers['x-demo-role'] === 'admin';
+  // Strictly enforce authorized admin email allowlist (or custom admin claim)
+  const isAdmin = req.user.role === 'admin' || isAuthorizedAdmin(req.user.email);
 
   if (!isAdmin) {
     return res.status(403).json({

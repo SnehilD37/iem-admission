@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { authApi } from '../services/api';
+import { isAuthorizedAdmin } from '../config/adminConfig';
 import { 
   auth, 
   signInWithEmailAndPassword, 
@@ -18,82 +19,116 @@ export const AuthProvider = ({ children }) => {
   const [role, setRole] = useState('student'); // 'student' | 'admin'
   const [demoUsers, setDemoUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const authAttemptPendingRef = useRef(false);
 
   // Initialize session and Firebase Auth listener on mount
   useEffect(() => {
     let unsubscribe = null;
+    let settled = false;
 
-    const initAuth = async () => {
+    const finishLoading = () => {
+      if (!settled) {
+        settled = true;
+        setLoading(false);
+      }
+    };
+
+    const bootTimeout = setTimeout(() => {
+      finishLoading();
+    }, 4500);
+
+    const resolveEffectiveRole = (email, preferredRole) => {
+      return preferredRole === 'admin' && isAuthorizedAdmin(email) ? 'admin' : 'student';
+    };
+
+    const restoreSavedSession = () => {
       try {
-        const res = await authApi.getDemoUsers();
-        if (res.data?.success) {
-          setDemoUsers(res.data.users);
-        }
+        const savedUser = localStorage.getItem('iem_user');
+        const savedToken = localStorage.getItem('iem_auth_token');
+        const savedRole = localStorage.getItem('iem_active_role');
 
-        // Check if there is an active Firebase Auth user
-        if (auth) {
-          unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (savedUser && savedToken) {
+          const parsed = JSON.parse(savedUser);
+          const effectiveRole = resolveEffectiveRole(parsed.email, savedRole || parsed.role);
+          setUser({ ...parsed, role: effectiveRole });
+          setRole(effectiveRole);
+          localStorage.setItem('iem_active_role', effectiveRole);
+        }
+      } catch (e) {
+        localStorage.removeItem('iem_user');
+        localStorage.removeItem('iem_auth_token');
+        localStorage.removeItem('iem_active_role');
+      } finally {
+        finishLoading();
+      }
+    };
+
+    try {
+      // Non-blocking demo user fetch
+      authApi.getDemoUsers().then((res) => {
+        if (res.data?.success) setDemoUsers(res.data.users);
+      }).catch(() => {});
+
+      if (auth) {
+        unsubscribe = onAuthStateChanged(
+          auth,
+          async (firebaseUser) => {
+            clearTimeout(bootTimeout);
+            // Let active loginWithGoogle / loginCustom validate admin permissions before updating state
+            if (authAttemptPendingRef.current) {
+              finishLoading();
+              return;
+            }
+
             if (firebaseUser) {
               try {
                 const token = await firebaseUser.getIdToken();
-                const savedRole = localStorage.getItem('iem_active_role') || 
-                  (firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'student');
-                
+                const savedRole = localStorage.getItem('iem_active_role');
+                const effectiveRole = resolveEffectiveRole(
+                  firebaseUser.email,
+                  savedRole || (isAuthorizedAdmin(firebaseUser.email) ? 'admin' : 'student')
+                );
+
                 const loggedInUser = {
                   uid: firebaseUser.uid,
                   email: firebaseUser.email,
                   name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
                   photoURL: firebaseUser.photoURL || '',
-                  role: savedRole
+                  role: effectiveRole
                 };
 
                 setUser(loggedInUser);
-                setRole(savedRole);
+                setRole(effectiveRole);
                 localStorage.setItem('iem_user', JSON.stringify(loggedInUser));
                 localStorage.setItem('iem_auth_token', token);
-                localStorage.setItem('iem_active_role', savedRole);
-                setLoading(false);
+                localStorage.setItem('iem_active_role', effectiveRole);
+                finishLoading();
                 return;
               } catch (tokenErr) {
                 console.warn('Error refreshing Firebase ID token:', tokenErr);
               }
             }
 
-            // Fallback to saved local session if no active Firebase user
-            const savedUser = localStorage.getItem('iem_user');
-            const savedToken = localStorage.getItem('iem_auth_token');
-            const savedRole = localStorage.getItem('iem_active_role');
-
-            if (savedUser && savedToken) {
-              const parsed = JSON.parse(savedUser);
-              setUser(parsed);
-              setRole(savedRole || parsed.role || 'student');
-            }
-            setLoading(false);
-          });
-
-        } else {
-          // If Firebase client could not initialize, restore saved session
-          const savedUser = localStorage.getItem('iem_user');
-          const savedToken = localStorage.getItem('iem_auth_token');
-          const savedRole = localStorage.getItem('iem_active_role');
-
-          if (savedUser && savedToken) {
-            const parsed = JSON.parse(savedUser);
-            setUser(parsed);
-            setRole(savedRole || parsed.role || 'student');
+            restoreSavedSession();
+          },
+          (err) => {
+            clearTimeout(bootTimeout);
+            console.warn('Firebase Auth listener note:', err?.message);
+            finishLoading();
           }
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error('Auth initialization error:', err);
-        setLoading(false);
+        );
+      } else {
+        clearTimeout(bootTimeout);
+        restoreSavedSession();
       }
-    };
-
-    initAuth();
+    } catch (err) {
+      clearTimeout(bootTimeout);
+      console.error('Auth initialization error:', err);
+      finishLoading();
+    }
 
     return () => {
+      clearTimeout(bootTimeout);
       if (unsubscribe) unsubscribe();
     };
   }, []);
@@ -120,7 +155,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const loginCustom = async ({ email, password, roleType = 'student' }) => {
-    setLoading(true);
+    authAttemptPendingRef.current = true;
     try {
       if (!auth) {
         throw new Error('Firebase Auth is not initialized. Please verify your client .env Firebase variables.');
@@ -128,21 +163,39 @@ export const AuthProvider = ({ children }) => {
 
       // Live Firebase Sign-In
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const signedInEmail = userCredential.user.email;
+      const allowedAdmin = isAuthorizedAdmin(signedInEmail);
+
+      // Block non-admin accounts from logging into Admin Portal
+      if (roleType === 'admin' && !allowedAdmin) {
+        await signOut(auth).catch(() => {});
+        setUser(null);
+        setRole('student');
+        localStorage.removeItem('iem_user');
+        localStorage.removeItem('iem_auth_token');
+        localStorage.removeItem('iem_active_role');
+        return {
+          success: false,
+          error: 'Access Denied: This email is not authorized for Admin Portal access. Please sign in as an Applicant.'
+        };
+      }
+
       const token = await userCredential.user.getIdToken();
+      const effectiveRole = roleType === 'admin' && allowedAdmin ? 'admin' : 'student';
 
       const customUser = {
         uid: userCredential.user.uid,
-        email: userCredential.user.email,
+        email: signedInEmail,
         name: userCredential.user.displayName || email.split('@')[0].toUpperCase(),
         photoURL: userCredential.user.photoURL || '',
-        role: roleType
+        role: effectiveRole
       };
 
       setUser(customUser);
-      setRole(roleType);
+      setRole(effectiveRole);
       localStorage.setItem('iem_user', JSON.stringify(customUser));
       localStorage.setItem('iem_auth_token', token);
-      localStorage.setItem('iem_active_role', roleType);
+      localStorage.setItem('iem_active_role', effectiveRole);
 
       return { success: true, user: customUser };
     } catch (err) {
@@ -157,29 +210,42 @@ export const AuthProvider = ({ children }) => {
       }
       return { success: false, error: message };
     } finally {
-      setLoading(false);
+      authAttemptPendingRef.current = false;
     }
   };
 
   const loginWithGoogle = async (roleType = 'student') => {
-    setLoading(true);
+    authAttemptPendingRef.current = true;
     try {
       if (!auth) {
         throw new Error('Firebase Auth is not initialized. Please verify your client .env Firebase variables.');
       }
 
       const result = await signInWithPopup(auth, googleProvider);
-      const token = await result.user.getIdToken();
+      const googleEmail = result.user.email;
+      const allowedAdmin = isAuthorizedAdmin(googleEmail);
 
-      // Check if user is signing into admin portal or has admin institutional domain
-      const effectiveRole = roleType === 'admin' || result.user.email?.toLowerCase().includes('admin')
-        ? 'admin'
-        : 'student';
+      // Block non-admin accounts from signing into Admin Portal
+      if (roleType === 'admin' && !allowedAdmin) {
+        await signOut(auth).catch(() => {});
+        setUser(null);
+        setRole('student');
+        localStorage.removeItem('iem_user');
+        localStorage.removeItem('iem_auth_token');
+        localStorage.removeItem('iem_active_role');
+        return {
+          success: false,
+          error: 'Access Denied: Only authorized admin Gmail accounts can sign into the Admin Portal.'
+        };
+      }
+
+      const token = await result.user.getIdToken();
+      const effectiveRole = roleType === 'admin' && allowedAdmin ? 'admin' : 'student';
 
       const googleUser = {
         uid: result.user.uid,
-        email: result.user.email,
-        name: result.user.displayName || result.user.email.split('@')[0],
+        email: googleEmail,
+        name: result.user.displayName || googleEmail.split('@')[0],
         photoURL: result.user.photoURL || '',
         role: effectiveRole
       };
@@ -194,7 +260,7 @@ export const AuthProvider = ({ children }) => {
       try {
         await authApi.register({
           uid: result.user.uid,
-          email: result.user.email,
+          email: googleEmail,
           fullName: googleUser.name,
           phone: result.user.phoneNumber || ''
         });
@@ -219,12 +285,12 @@ export const AuthProvider = ({ children }) => {
       }
       return { success: false, error: message };
     } finally {
-      setLoading(false);
+      authAttemptPendingRef.current = false;
     }
   };
 
   const register = async (formData) => {
-    setLoading(true);
+    authAttemptPendingRef.current = true;
     try {
       if (!auth) {
         throw new Error('Firebase Auth is not initialized. Please verify your client .env Firebase variables.');
@@ -277,7 +343,7 @@ export const AuthProvider = ({ children }) => {
       }
       return { success: false, error: message };
     } finally {
-      setLoading(false);
+      authAttemptPendingRef.current = false;
     }
   };
 
@@ -290,21 +356,28 @@ export const AuthProvider = ({ children }) => {
       console.warn('Firebase signOut error:', err);
     }
     setUser(null);
+    setRole('student');
     localStorage.removeItem('iem_user');
     localStorage.removeItem('iem_auth_token');
     localStorage.removeItem('iem_active_role');
   };
 
+  const canAccessAdmin = Boolean(user && isAuthorizedAdmin(user.email));
+
+  // Allow authorized admins to switch between Admin Portal and Student Portal views
   const switchRole = (newRole) => {
-    setRole(newRole);
-    localStorage.setItem('iem_active_role', newRole);
-    if (newRole === 'admin') {
-      const adminDemo = demoUsers.find(u => u.role === 'admin');
-      if (adminDemo) loginAsDemo(adminDemo.uid);
-    } else {
-      const studentDemo = demoUsers.find(u => u.role === 'student');
-      if (studentDemo) loginAsDemo(studentDemo.uid);
+    if (newRole === 'admin' && !isAuthorizedAdmin(user?.email)) {
+      return false;
     }
+    const nextRole = newRole === 'admin' ? 'admin' : 'student';
+    setRole(nextRole);
+    localStorage.setItem('iem_active_role', nextRole);
+    if (user) {
+      const updatedUser = { ...user, role: nextRole };
+      setUser(updatedUser);
+      localStorage.setItem('iem_user', JSON.stringify(updatedUser));
+    }
+    return true;
   };
 
   return (
@@ -312,6 +385,7 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         role,
+        canAccessAdmin,
         demoUsers,
         loading,
         loginAsDemo,

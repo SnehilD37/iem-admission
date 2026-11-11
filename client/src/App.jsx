@@ -9,24 +9,35 @@ import StudentPortal from './components/student/StudentPortal';
 import AdminPortal from './components/admin/AdminPortal';
 
 function MainApp() {
-  const { user, role, loading } = useAuth();
+  const { user, role, canAccessAdmin, loading } = useAuth();
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC' }}>
-        <div style={{ textAlign: 'center' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC', padding: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          <img
+            src="/logo.png"
+            alt="IEM Logo"
+            style={{
+              height: '160px',
+              width: 'auto',
+              objectFit: 'contain',
+              display: 'block',
+              marginTop: '-42px',
+              marginBottom: '-38px'
+            }}
+          />
+          <h2 style={{ color: 'var(--secondary)', fontWeight: 800, fontSize: '1.15rem', margin: '0 0 14px', letterSpacing: '-0.01em' }}>
+            Welcome to IEM!
+          </h2>
           <div style={{
-            margin: '0 auto 16px',
-            width: '40px',
-            height: '40px',
+            width: '36px',
+            height: '36px',
             border: '3px solid #E2E8F0',
             borderTop: '3px solid var(--primary)',
             borderRadius: '50%',
             animation: 'spin 0.8s linear infinite'
           }} />
-          <p style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.9rem' }}>
-            Connecting to IEM Admissions System...
-          </p>
         </div>
       </div>
     );
@@ -42,8 +53,8 @@ function MainApp() {
     );
   }
 
-  // 2. Admin Role -> Dedicated Admin Scrutiny Console
-  if (role === 'admin' || user.role === 'admin') {
+  // 2. Admin Role (strictly enforced for authorized admin accounts only)
+  if (canAccessAdmin && role === 'admin') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: 'var(--background)' }}>
         <Navbar />

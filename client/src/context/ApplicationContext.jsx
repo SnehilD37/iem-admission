@@ -318,7 +318,7 @@ export const ApplicationProvider = ({ children }) => {
       setApplication(savedApp);
       const fsRes = await firestoreService.saveApplication(savedApp);
       if (fsRes.cloud) {
-        showNotification('Draft saved to Firebase Firestore! You can resume anytime.', 'success');
+        showNotification('Draft saved successfully! You can resume anytime.', 'success');
       } else {
         showNotification(`Draft saved locally, but Cloud Firestore sync failed: ${fsRes.error || 'Unknown error'}`, 'error');
       }
@@ -388,7 +388,7 @@ export const ApplicationProvider = ({ children }) => {
         throw new Error(errMsg);
       }
 
-      showNotification('🎉 Application submitted & saved to Firebase! ID: ' + submittedApp.id, 'success');
+      showNotification('Form submitted successfully! ID: ' + submittedApp.id, 'success');
       return submittedApp;
     } catch (err) {
       showNotification('Submission error: ' + err.message, 'error');
@@ -477,7 +477,7 @@ export const ApplicationProvider = ({ children }) => {
         setApplication(updatedApp);
       }
 
-      showNotification(`✅ Candidate ${applicationId} updated & saved to Firebase!`, 'success');
+      showNotification(`Candidate ${applicationId} updated successfully!`, 'success');
       return updatedApp;
     } catch (err) {
       showNotification('Update error: ' + err.message, 'error');
