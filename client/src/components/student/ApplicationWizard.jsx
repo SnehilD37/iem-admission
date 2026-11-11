@@ -81,23 +81,27 @@ export const ApplicationWizard = ({ onComplete }) => {
     pincode: ''
   });
 
-  // Age eligibility check (17–24 years)
+  // Age eligibility check (17–21 years based on current date)
   const getAge = (dob) => {
     if (!dob) return null;
-    const birth = new Date(dob);
+    const parts = String(dob).split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return null;
+    const [birthYear, birthMonth, birthDay] = parts;
     const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    let age = today.getFullYear() - birthYear;
+    const m = (today.getMonth() + 1) - birthMonth;
+    if (m < 0 || (m === 0 && today.getDate() < birthDay)) age--;
     return age;
   };
   const candidateAge = getAge(personal.dob);
   const dobError = personal.dob
-    ? candidateAge < 17
-      ? 'Candidate must be at least 17 years old to be eligible.'
-      : candidateAge > 24
-        ? 'Candidate must be 24 years or younger to be eligible.'
-        : ''
+    ? candidateAge === null
+      ? 'Please enter a valid Date of Birth.'
+      : candidateAge < 17
+        ? 'Candidate must be at least 17 years old to be eligible.'
+        : candidateAge > 21
+          ? 'Candidate must be 21 years or younger to be eligible.'
+          : ''
     : '';
 
   const [academic, setAcademic] = useState({
@@ -105,6 +109,10 @@ export const ApplicationWizard = ({ onComplete }) => {
     school10: '',
     year10: '',
     percent10: '',
+    board12: '',
+    school12: '',
+    year12: '',
+    percent12: '',
     physicsMarks: '',
     chemistryMarks: '',
     mathMarks: '',
@@ -140,7 +148,8 @@ export const ApplicationWizard = ({ onComplete }) => {
           ...prev,
           ...application.academic,
           examRoll: (application.academic.examRoll || '').replace(/\D/g, '').slice(0, 10),
-          year10: application.academic.year10 ? String(application.academic.year10).replace(/\D/g, '').slice(0, 4) : ''
+          year10: application.academic.year10 ? String(application.academic.year10).replace(/\D/g, '').slice(0, 4) : '',
+          year12: application.academic.year12 ? String(application.academic.year12).replace(/\D/g, '').slice(0, 4) : ''
         }));
       }
       if (application.preferences && application.preferences.length > 0) {
@@ -163,9 +172,9 @@ export const ApplicationWizard = ({ onComplete }) => {
 
   // Live PCM aggregate % calculation
   const calculatePcm = (p, c, m) => {
-    const pVal = parseFloat(p) || 0;
-    const cVal = parseFloat(c) || 0;
-    const mVal = parseFloat(m) || 0;
+    const pVal = parseInt(p, 10) || 0;
+    const cVal = parseInt(c, 10) || 0;
+    const mVal = parseInt(m, 10) || 0;
     if (!pVal || !cVal || !mVal) return 0;
     return parseFloat(((pVal + cVal + mVal) / 3).toFixed(2));
   };
@@ -181,7 +190,10 @@ export const ApplicationWizard = ({ onComplete }) => {
       setAcademic(nextAcademic);
       return;
     }
-    const num = Math.min(100, Math.max(0, parseFloat(val) || 0));
+    // Strip decimals — only allow integers
+    const intVal = parseInt(val, 10);
+    if (isNaN(intVal)) return;
+    const num = Math.min(100, Math.max(0, intVal));
     const nextAcademic = { ...academic, [field]: num };
     nextAcademic.pcmPercentage = calculatePcm(
       field === 'physicsMarks' ? num : nextAcademic.physicsMarks,
@@ -189,6 +201,60 @@ export const ApplicationWizard = ({ onComplete }) => {
       field === 'mathMarks' ? num : nextAcademic.mathMarks
     );
     setAcademic(nextAcademic);
+  };
+
+  const currentYear = new Date().getFullYear();
+
+  const handleYearChange = (field, val) => {
+    const digits = val.replace(/\D/g, '').slice(0, 4);
+    if (digits.length === 4 && Number(digits) > currentYear) {
+      setAcademic(prev => ({ ...prev, [field]: String(currentYear) }));
+      return;
+    }
+    setAcademic(prev => ({ ...prev, [field]: digits }));
+  };
+
+  const renderYearField = (field, placeholder) => {
+    const val = academic[field] || '';
+    const len = String(val).length;
+    const isTooHigh = len === 4 && Number(val) > currentYear;
+    const isInvalid = Boolean(val) && (len !== 4 || isTooHigh);
+    return (
+      <div className="form-group" style={{ marginBottom: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <label className="form-label" style={{ marginBottom: 0 }}>Year of Passing</label>
+          {val ? (
+            <span style={{ fontSize: '0.72rem', color: isTooHigh ? 'var(--destructive)' : len === 4 ? 'var(--success)' : '#64748B', fontWeight: 600 }}>
+              {len}/4 digits
+            </span>
+          ) : (
+            <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Max {currentYear}</span>
+          )}
+        </div>
+        <input
+          type="text"
+          value={val}
+          onChange={e => handleYearChange(field, e.target.value)}
+          className="form-input"
+          style={{
+            marginTop: '4px',
+            borderColor: isInvalid ? 'var(--destructive)' : undefined
+          }}
+          placeholder={placeholder}
+          maxLength={4}
+        />
+        {val && len !== 4 && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
+            ⚠ Year must be exactly 4 digits
+          </span>
+        )}
+        {isTooHigh && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
+            ⚠ Year cannot exceed {currentYear}
+          </span>
+        )}
+      </div>
+    );
   };
 
   const handlePercent10Change = (val) => {
@@ -204,6 +270,22 @@ export const ApplicationWizard = ({ onComplete }) => {
       setAcademic(prev => ({ ...prev, percent10: 0 }));
     } else {
       setAcademic(prev => ({ ...prev, percent10: val }));
+    }
+  };
+
+  const handlePercent12Change = (val) => {
+    if (val === '') {
+      setAcademic(prev => ({ ...prev, percent12: '' }));
+      return;
+    }
+    const num = parseFloat(val);
+    if (isNaN(num)) return;
+    if (num > 100) {
+      setAcademic(prev => ({ ...prev, percent12: 100 }));
+    } else if (num < 0) {
+      setAcademic(prev => ({ ...prev, percent12: 0 }));
+    } else {
+      setAcademic(prev => ({ ...prev, percent12: val }));
     }
   };
 
@@ -269,7 +351,7 @@ export const ApplicationWizard = ({ onComplete }) => {
   const isStepValid = (step) => {
     if (step === 1) {
       const isNameValid = Boolean(personal.fullName && personal.fullName.trim().length >= 2);
-      const isDobValid = Boolean(personal.dob && !dobError && candidateAge >= 17 && candidateAge <= 24);
+      const isDobValid = Boolean(personal.dob && !dobError && candidateAge !== null && candidateAge >= 17 && candidateAge <= 21);
       const isPhoneValid = Boolean(personal.phone && personal.phone.length === 10);
       const isEmailValid = Boolean(personal.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal.email));
       const isGuardianNameValid = Boolean(personal.guardianName && personal.guardianName.trim().length >= 2);
@@ -294,8 +376,10 @@ export const ApplicationWizard = ({ onComplete }) => {
       const isPcmValid = Number(academic.pcmPercentage) >= 60;
       const isExamRollValid = Boolean(academic.examRoll && academic.examRoll.length === 10);
       const isExamRankValid = Boolean(academic.examRank && Number(academic.examRank) > 0);
-      const isYearValid = !academic.year10 || String(academic.year10).length === 4;
+      const isYearValid = !academic.year10 || (String(academic.year10).length === 4 && Number(academic.year10) <= currentYear);
       const isPercent10Valid = academic.percent10 === '' || (Number(academic.percent10) >= 0 && Number(academic.percent10) <= 100);
+      const isYear12Valid = !academic.year12 || (String(academic.year12).length === 4 && Number(academic.year12) <= currentYear);
+      const isPercent12Valid = academic.percent12 === '' || (Number(academic.percent12) >= 0 && Number(academic.percent12) <= 100);
 
       return Boolean(
         areMarksFilled &&
@@ -303,7 +387,9 @@ export const ApplicationWizard = ({ onComplete }) => {
         isExamRollValid &&
         isExamRankValid &&
         isYearValid &&
-        isPercent10Valid
+        isPercent10Valid &&
+        isYear12Valid &&
+        isPercent12Valid
       );
     }
     if (step === 3) {
@@ -390,6 +476,22 @@ export const ApplicationWizard = ({ onComplete }) => {
       }
       if (academic.year10 && String(academic.year10).length !== 4) {
         setErrorMsg('Class 10 Year of Passing must be a 4-digit year.');
+        return;
+      }
+      if (academic.year10 && Number(academic.year10) > currentYear) {
+        setErrorMsg(`Class 10 Year of Passing cannot exceed ${currentYear}.`);
+        return;
+      }
+      if (academic.year12 && String(academic.year12).length !== 4) {
+        setErrorMsg('Class 12 Year of Passing must be a 4-digit year.');
+        return;
+      }
+      if (academic.year12 && Number(academic.year12) > currentYear) {
+        setErrorMsg(`Class 12 Year of Passing cannot exceed ${currentYear}.`);
+        return;
+      }
+      if (academic.percent12 !== '' && (Number(academic.percent12) < 0 || Number(academic.percent12) > 100)) {
+        setErrorMsg('Class 12 Aggregate % cannot exceed 100%.');
         return;
       }
     }
@@ -528,6 +630,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <input
                   type="date"
                   required
+                  max={new Date().toLocaleDateString('en-CA')}
                   value={personal.dob}
                   onChange={e => setPersonal({ ...personal, dob: e.target.value })}
                   className="form-input"
@@ -776,33 +879,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                   />
                 </div>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label className="form-label" style={{ marginBottom: 0 }}>Year of Passing</label>
-                    {academic.year10 && (
-                      <span style={{ fontSize: '0.72rem', color: String(academic.year10).length === 4 ? 'var(--success)' : '#64748B', fontWeight: 600 }}>
-                        {String(academic.year10).length}/4 digits
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="text"
-                    value={academic.year10 || ''}
-                    onChange={e => setAcademic({ ...academic, year10: e.target.value.replace(/\D/g, '').slice(0, 4) })}
-                    className="form-input"
-                    style={{
-                      marginTop: '4px',
-                      borderColor: academic.year10 && String(academic.year10).length !== 4 ? 'var(--destructive)' : undefined
-                    }}
-                    placeholder="e.g. 2024"
-                    maxLength={4}
-                  />
-                  {academic.year10 && String(academic.year10).length !== 4 && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
-                      ⚠ Year must be exactly 4 digits
-                    </span>
-                  )}
-                </div>
+                {renderYearField('year10', 'e.g. 2024')}
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -832,6 +909,69 @@ export const ApplicationWizard = ({ onComplete }) => {
               </div>
             </div>
 
+            {/* Class 12 Details */}
+            <div style={{ background: '#F8FAFC', padding: '1.25rem', borderRadius: '8px', border: '1px solid #E2E8F0', marginBottom: '1.5rem' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--secondary)', marginBottom: '1rem' }}>
+                Class 12 (Higher Secondary)
+              </h4>
+              <div className="grid grid-cols-4 md-col-1 gap-4">
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Board / Council</label>
+                  <select
+                    value={academic.board12}
+                    onChange={e => setAcademic({ ...academic, board12: e.target.value })}
+                    className="form-select"
+                    style={{ color: academic.board12 === '' ? '#9CA3AF' : undefined }}
+                  >
+                    <option value="" disabled>Select</option>
+                    <option value="CBSE" style={{ color: '#000' }}>CBSE</option>
+                    <option value="ISC" style={{ color: '#000' }}>ISC</option>
+                    <option value="WBCHSE" style={{ color: '#000' }}>WBCHSE (HS)</option>
+                    <option value="Other" style={{ color: '#000' }}>Other State Board</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">School / Institution</label>
+                  <input
+                    type="text"
+                    value={academic.school12}
+                    onChange={e => setAcademic({ ...academic, school12: e.target.value })}
+                    className="form-input"
+                    placeholder="School Name"
+                  />
+                </div>
+
+                {renderYearField('year12', `e.g. ${currentYear}`)}
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>Aggregate %</label>
+                    <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Max 100%</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={academic.percent12}
+                    onChange={e => handlePercent12Change(e.target.value)}
+                    className="form-input"
+                    style={{
+                      marginTop: '4px',
+                      borderColor: academic.percent12 !== '' && (Number(academic.percent12) < 0 || Number(academic.percent12) > 100) ? 'var(--destructive)' : undefined
+                    }}
+                    placeholder="Enter %"
+                  />
+                  {academic.percent12 !== '' && Number(academic.percent12) > 100 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
+                      ⚠ Percentage cannot exceed 100%
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Class 12 PCM Details */}
             <div style={{ background: '#F8FAFC', padding: '1.25rem', borderRadius: '8px', border: '1px solid #E2E8F0', marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -850,6 +990,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                     type="number"
                     min="0"
                     max="100"
+                    step="1"
                     value={academic.physicsMarks}
                     onChange={e => handleMarksChange('physicsMarks', e.target.value)}
                     className="form-input"
@@ -864,6 +1005,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                     type="number"
                     min="0"
                     max="100"
+                    step="1"
                     value={academic.chemistryMarks}
                     onChange={e => handleMarksChange('chemistryMarks', e.target.value)}
                     className="form-input"
@@ -878,6 +1020,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                     type="number"
                     min="0"
                     max="100"
+                    step="1"
                     value={academic.mathMarks}
                     onChange={e => handleMarksChange('mathMarks', e.target.value)}
                     className="form-input"

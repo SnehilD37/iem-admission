@@ -22,7 +22,7 @@ const COLLECTION_NAME = 'applications';
 const LOCAL_STORAGE_KEY = 'iem_firestore_cached_apps';
 
 // Fields that were written by seed data but do NOT exist in the admission form
-const DEPRECATED_ACADEMIC_FIELDS = ['board12', 'school12', 'year12', 'overall12Percent'];
+const DEPRECATED_ACADEMIC_FIELDS = ['overall12Percent'];
 
 const withTimeout = (promise, ms = 6000) => {
   return Promise.race([
@@ -85,9 +85,6 @@ const parseFirestoreDoc = (docSnap) => {
     ...(docData.academic || {})
   };
   // Strip deprecated fields not present in the admission form
-  delete merged.academic.board12;
-  delete merged.academic.school12;
-  delete merged.academic.year12;
   delete merged.academic.overall12Percent;
 
   merged.applicantName = merged.personal.fullName;
@@ -475,7 +472,7 @@ export const firestoreService = {
   },
 
   /**
-   * Remove deprecated academic fields (board12, school12, year12, overall12Percent)
+   * Remove deprecated academic fields (overall12Percent)
    * from a specific Firestore document. Call once per document to clean existing data.
    */
   async cleanupDeprecatedFields(appId) {

@@ -30,7 +30,7 @@ export const getMyApplication = (req, res) => {
   });
 };
 
-const DEPRECATED_ACADEMIC_FIELDS = ['board12', 'school12', 'year12', 'overall12Percent'];
+const DEPRECATED_ACADEMIC_FIELDS = ['overall12Percent'];
 const stripDeprecatedAcademic = (academic) => {
   if (!academic || typeof academic !== 'object') return academic;
   const cleaned = { ...academic };

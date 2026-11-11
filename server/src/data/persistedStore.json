@@ -593,10 +593,10 @@
         "examType": "WBJEE",
         "examRoll": "7062793486",
         "examRank": "2397697",
-        "board12": "",
-        "school12": "",
-        "year12": "",
-        "overall12Percent": ""
+        "board12": "ISC",
+        "school12": "metho",
+        "year12": "2026",
+        "percent12": "92"
       },
       "preferences": [
         "CSE",
@@ -605,9 +605,9 @@
       ],
       "documents": {
         "photo": {
+          "uploaded": true,
           "name": "passport_photo.jpg",
-          "url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80",
-          "uploaded": true
+          "url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80"
         },
         "admit10": {
           "name": "class10_admit.pdf",
@@ -615,14 +615,14 @@
           "uploaded": true
         },
         "marksheet12": {
-          "name": "class12_marksheet.pdf",
           "url": "https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=800&q=80",
-          "uploaded": true
+          "uploaded": true,
+          "name": "class12_marksheet.pdf"
         },
         "rankCard": {
+          "uploaded": true,
           "name": "entrance_rankcard.pdf",
-          "url": "https://images.unsplash.com/photo-1554415707-9e49fe83083f?w=800&q=80",
-          "uploaded": true
+          "url": "https://images.unsplash.com/photo-1554415707-9e49fe83083f?w=800&q=80"
         }
       },
       "queries": [],
@@ -641,6 +641,11 @@
           "timestamp": "2026-11-11T09:10:55.107Z",
           "event": "Status transitioned from SUBMITTED to VERIFIED_ELIGIBLE: All academic credentials and uploaded marksheets verified successfully.",
           "actor": "Admission Officer"
+        },
+        {
+          "timestamp": "2026-11-11T11:14:31.677Z",
+          "event": "Application updated and submitted as IEM-2026-7011",
+          "actor": "Snehil Das"
         }
       ]
     },
@@ -764,5 +769,5 @@
       "cutoffRankJEE": 62000
     }
   },
-  "lastUpdated": "2026-11-11T09:37:08.855Z"
+  "lastUpdated": "2026-11-11T11:14:31.677Z"
 }
