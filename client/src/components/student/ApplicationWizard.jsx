@@ -64,6 +64,7 @@ export const ApplicationWizard = ({ onComplete }) => {
     if (!p) return '';
     return String(p).replace(/\D/g, '').slice(0, 6);
   };
+  const sanitizeSchoolName = (val) => String(val || '').replace(/[^a-zA-Z ',.\-]/g, '');
 
   // Form State
   const [personal, setPersonal] = useState({
@@ -148,6 +149,8 @@ export const ApplicationWizard = ({ onComplete }) => {
           ...prev,
           ...application.academic,
           examRoll: (application.academic.examRoll || '').replace(/\D/g, '').slice(0, 10),
+          school10: sanitizeSchoolName(application.academic.school10),
+          school12: sanitizeSchoolName(application.academic.school12),
           year10: application.academic.year10 ? String(application.academic.year10).replace(/\D/g, '').slice(0, 4) : '',
           year12: application.academic.year12 ? String(application.academic.year12).replace(/\D/g, '').slice(0, 4) : ''
         }));
@@ -204,6 +207,21 @@ export const ApplicationWizard = ({ onComplete }) => {
   };
 
   const currentYear = new Date().getFullYear();
+
+  const renderSchoolField = (field) => (
+    <div className="form-group" style={{ marginBottom: 0 }}>
+      <label className="form-label">School / Institution</label>
+      <input
+        type="text"
+        value={academic[field] || ''}
+        onChange={e => setAcademic(prev => ({ ...prev, [field]: sanitizeSchoolName(e.target.value) }))}
+        className="form-input"
+        placeholder="School Name"
+        pattern="[a-zA-Z ',.\-]+"
+        title="Only letters, spaces, apostrophes, commas, dashes, and dots are allowed"
+      />
+    </div>
+  );
 
   const handleYearChange = (field, val) => {
     const digits = val.replace(/\D/g, '').slice(0, 4);
@@ -900,16 +918,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                   </select>
                 </div>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">School / Institution</label>
-                  <input
-                    type="text"
-                    value={academic.school10}
-                    onChange={e => setAcademic({ ...academic, school10: e.target.value })}
-                    className="form-input"
-                    placeholder="School Name"
-                  />
-                </div>
+                {renderSchoolField('school10')}
 
                 {renderYearField('year10', 'e.g. 2024')}
 
@@ -939,16 +948,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                   </select>
                 </div>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">School / Institution</label>
-                  <input
-                    type="text"
-                    value={academic.school12}
-                    onChange={e => setAcademic({ ...academic, school12: e.target.value })}
-                    className="form-input"
-                    placeholder="School Name"
-                  />
-                </div>
+                {renderSchoolField('school12')}
 
                 {renderYearField('year12', `e.g. ${currentYear}`)}
 
