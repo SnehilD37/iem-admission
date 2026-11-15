@@ -246,3 +246,13 @@ export const resolveQuery = (req, res) => {
     application
   });
 };
+
+export const deleteApplication = (req, res) => {
+  const { id } = req.params;
+  const idx = store.applications.findIndex(a => a.id === id);
+  if (idx !== -1) {
+    store.applications.splice(idx, 1);
+    store.save();
+  }
+  res.json({ success: true, message: `Application ${id} deleted successfully` });
+};

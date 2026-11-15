@@ -417,6 +417,37 @@ export const ApplicationProvider = ({ children }) => {
     }
   };
 
+  // Permanently delete application from Cloud Firestore and local persistence
+  const deleteApplication = async (applicationId) => {
+    try {
+      const targetId = applicationId || application?.id;
+      if (!targetId) return { success: false, message: 'No application to delete' };
+
+      // 1. Delete from Cloud Firestore and local persistence
+      await firestoreService.deleteApplication(targetId);
+
+      // 2. Best-effort backend deletion
+      try {
+        await applicationApi.deleteApplication(targetId);
+      } catch (e) {}
+
+      // 3. Clear application state if this was the current student's application
+      if (application?.id === targetId) {
+        setApplication(null);
+      }
+
+      // 4. Remove from admin applications list
+      setRawAdminApplications(prev => prev.filter(a => a.id !== targetId));
+      setAdminApplications(prev => prev.filter(a => a.id !== targetId));
+
+      showNotification(`Application ${targetId} withdrawn and permanently removed from database.`, 'success');
+      return { success: true };
+    } catch (err) {
+      showNotification('Error deleting application: ' + err.message, 'error');
+      throw err;
+    }
+  };
+
   // Admin: Update candidate data, allotment status & branch directly in Firebase Firestore
   const updateCandidateDataByAdmin = async (applicationId, updatePayload) => {
     try {
@@ -510,6 +541,7 @@ export const ApplicationProvider = ({ children }) => {
         refreshStudentApplication,
         saveApplicationDraft,
         submitApplication,
+        deleteApplication,
         resolveQuery,
         adminStats,
         adminApplications,

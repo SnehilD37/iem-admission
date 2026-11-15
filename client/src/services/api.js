@@ -38,7 +38,8 @@ export const applicationApi = {
   getMyApplication: (userId, appId) => api.get('/applications/my-application', { params: { userId, appId } }),
   saveDraft: (data) => api.post('/applications/save-draft', data),
   submitApplication: (data) => api.post('/applications/submit', data),
-  resolveQuery: (data) => api.post('/applications/resolve-query', data)
+  resolveQuery: (data) => api.post('/applications/resolve-query', data),
+  deleteApplication: (id) => api.delete(`/applications/${id}`)
 };
 
 export const adminApi = {

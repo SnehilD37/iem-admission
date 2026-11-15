@@ -286,11 +286,11 @@ export const SplitScreenVerification = ({ application, onClose, onUpdated }) => 
           <div style={{ padding: '1.5rem', overflowY: 'auto', background: '#F8FAFC', borderRight: '1px solid var(--card-border)' }}>
             
             {/* Quick Metrics Bar */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1.5rem' }}>
               <div style={{ background: '#FFFFFF', padding: '10px', borderRadius: '8px', border: '1px solid var(--card-border)', textAlign: 'center' }}>
                 <div style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>12th PCM AGGREGATE</div>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: application.academic?.pcmPercentage >= 60 ? 'var(--success)' : 'var(--destructive)' }}>
-                  {application.academic?.pcmPercentage}%
+                  {application.academic?.pcmPercentage != null ? `${application.academic.pcmPercentage}%` : '0%'}
                 </div>
               </div>
 
@@ -304,7 +304,18 @@ export const SplitScreenVerification = ({ application, onClose, onUpdated }) => 
               <div style={{ background: '#FFFFFF', padding: '10px', borderRadius: '8px', border: '1px solid var(--card-border)', textAlign: 'center' }}>
                 <div style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>CLASS 10 SCORE</div>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--secondary)' }}>
-                  {application.academic?.percent10}%
+                  {application.academic?.percent10 != null && application.academic?.percent10 !== '' ? `${application.academic.percent10}%` : 'N/A'}
+                </div>
+              </div>
+
+              <div style={{ background: '#FFFFFF', padding: '10px', borderRadius: '8px', border: '1px solid var(--card-border)', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>CLASS 12 SCORE</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--secondary)' }}>
+                  {application.academic?.percent12 != null && application.academic?.percent12 !== ''
+                    ? `${application.academic.percent12}%`
+                    : (application.academic?.overall12Percent != null && application.academic?.overall12Percent !== ''
+                        ? `${application.academic.overall12Percent}%`
+                        : 'N/A')}
                 </div>
               </div>
             </div>
@@ -318,12 +329,24 @@ export const SplitScreenVerification = ({ application, onClose, onUpdated }) => 
                 <tbody>
                   <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
                     <td style={{ padding: '6px 0', color: 'var(--muted)' }}>Class 10 Board & School:</td>
-                    <td style={{ padding: '6px 0', fontWeight: 600 }}>{application.academic?.board10} — {application.academic?.school10 || 'Recognized Institution'}</td>
+                    <td style={{ padding: '6px 0', fontWeight: 600 }}>
+                      {application.academic?.board10 || application.academic?.school10
+                        ? `${application.academic?.board10 || 'N/A'} — ${application.academic?.school10 || 'Recognized Institution'}`
+                        : 'N/A'}
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                    <td style={{ padding: '6px 0', color: 'var(--muted)' }}>Class 12 Board & School:</td>
+                    <td style={{ padding: '6px 0', fontWeight: 600 }}>
+                      {application.academic?.board12 || application.academic?.school12
+                        ? `${application.academic?.board12 || 'N/A'} — ${application.academic?.school12 || 'Recognized Institution'}`
+                        : 'N/A'}
+                    </td>
                   </tr>
                   <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
                     <td style={{ padding: '6px 0', color: 'var(--muted)' }}>Subject Marks (P / C / M):</td>
                     <td style={{ padding: '6px 0', fontWeight: 700 }}>
-                      Physics: {application.academic?.physicsMarks}/100 • Chemistry: {application.academic?.chemistryMarks}/100 • Math: {application.academic?.mathMarks}/100
+                      Physics: {application.academic?.physicsMarks ?? 'N/A'}/100 • Chemistry: {application.academic?.chemistryMarks ?? 'N/A'}/100 • Math: {application.academic?.mathMarks ?? 'N/A'}/100
                     </td>
                   </tr>
                   <tr style={{ borderBottom: '1px solid #E2E8F0' }}>

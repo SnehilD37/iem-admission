@@ -17,10 +17,10 @@ export const createRazorpayOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Application record not found' });
     }
 
-    if (application.status !== 'SEAT_OFFERED' && application.status !== 'ADMISSION_CONFIRMED') {
+    if (application.status !== 'SEAT_OFFERED' && application.status !== 'VERIFIED_ELIGIBLE' && application.status !== 'ADMISSION_CONFIRMED') {
       return res.status(400).json({
         success: false,
-        message: `Cannot initiate payment for application in status "${application.status}". Seat offer required.`
+        message: `Cannot initiate payment for application in status "${application.status}". Eligibility verification or seat offer required.`
       });
     }
 

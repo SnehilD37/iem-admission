@@ -16,7 +16,8 @@ import {
   Award, 
   FileSpreadsheet, 
   Eye,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 
 export const AdminPortal = () => {
@@ -28,11 +29,24 @@ export const AdminPortal = () => {
     setAdminFilters, 
     loadingAdmin, 
     refreshAdminData, 
-    showNotification
+    showNotification,
+    deleteApplication
   } = useApplication();
 
   const [selectedAppForReview, setSelectedAppForReview] = useState(null);
   const [meritModalOpen, setMeritModalOpen] = useState(false);
+
+  const handleDeleteCandidate = async (appId, candidateName) => {
+    if (!window.confirm(`Permanently delete application ${appId} (${candidateName || 'Candidate'}) from Firebase database? Once deleted, the student will have to fill up the form again and will have to pay after verification.`)) {
+      return;
+    }
+    try {
+      await deleteApplication(appId);
+      refreshAdminData();
+    } catch (e) {
+      // notification handled in context
+    }
+  };
 
   // Search and filter handling
   const handleSearchChange = (e) => {
@@ -326,6 +340,14 @@ export const AdminPortal = () => {
                           style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}
                         >
                           <Eye size={13} /> Review
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCandidate(app.id, app.personal?.fullName)}
+                          className="btn btn-outline btn-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--destructive)', borderColor: '#FECACA' }}
+                          title="Permanently delete candidate record from database"
+                        >
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>

@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { useApplication } from '../../context/ApplicationContext';
 import ApplicationWizard from './ApplicationWizard';
 import StatusAndPaymentHub from './StatusAndPaymentHub';
-import { PlusCircle, Search, FileText, ArrowRight } from 'lucide-react';
+import { PlusCircle, FileText, Edit3, Eye, Lock } from 'lucide-react';
 
 export const StudentPortal = () => {
-  const { user } = useAuth();
-  const { application, loadingApp, refreshStudentApplication } = useApplication();
+  const { application } = useApplication();
   const [viewMode, setViewMode] = useState(application ? 'status' : 'wizard'); // 'wizard' | 'status'
 
   // If application exists and in non-draft status, default to status
   const hasSubmittedApp = application && application.status !== 'DRAFT';
+  const isVerified = ['VERIFIED_ELIGIBLE', 'SEAT_OFFERED', 'ADMISSION_CONFIRMED', 'REJECTED'].includes(application?.status);
 
   return (
     <div style={{ minHeight: 'calc(100vh - 180px)', backgroundColor: 'var(--background)' }}>
@@ -22,6 +21,17 @@ export const StudentPortal = () => {
             <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--secondary)' }}>
               Student Admission Center
             </span>
+            {hasSubmittedApp && (
+              isVerified ? (
+                <span className="badge" style={{ fontSize: '0.7rem', background: '#EFF6FF', color: '#1E40AF', border: '1px solid #BFDBFE', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Lock size={11} /> Verified & Locked
+                </span>
+              ) : (
+                <span className="badge" style={{ fontSize: '0.7rem', background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Edit3 size={11} /> Pre-Verification (Editable)
+                </span>
+              )
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -37,7 +47,15 @@ export const StudentPortal = () => {
                   onClick={() => setViewMode('wizard')}
                   className={`btn btn-sm ${viewMode === 'wizard' ? 'btn-primary' : 'btn-outline'}`}
                 >
-                  View Submitted Form Details
+                  {isVerified ? (
+                    <>
+                      <Eye size={14} /> View Submitted Form (Locked)
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 size={14} /> Edit Application Form
+                    </>
+                  )}
                 </button>
               </>
             ) : (

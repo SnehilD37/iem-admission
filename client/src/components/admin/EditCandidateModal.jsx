@@ -37,6 +37,10 @@ export const EditCandidateModal = ({ application, onClose, onSaved }) => {
     examRoll: application.academic?.examRoll || '',
     percent10: application.academic?.percent10 || '',
     board10: application.academic?.board10 || 'CBSE',
+    school10: application.academic?.school10 || '',
+    percent12: application.academic?.percent12 || application.academic?.overall12Percent || '',
+    board12: application.academic?.board12 || 'CBSE',
+    school12: application.academic?.school12 || '',
     physicsMarks: application.academic?.physicsMarks ?? '',
     chemistryMarks: application.academic?.chemistryMarks ?? '',
     mathMarks: application.academic?.mathMarks ?? '',
@@ -83,11 +87,16 @@ export const EditCandidateModal = ({ application, onClose, onSaved }) => {
           address: formData.address
         },
         academic: {
+          ...(application.academic || {}),
           examType: formData.examType,
           examRank: Number(formData.examRank) || formData.examRank,
           examRoll: formData.examRoll,
           percent10: Number(formData.percent10) || formData.percent10,
           board10: formData.board10,
+          school10: formData.school10 || application.academic?.school10 || '',
+          percent12: Number(formData.percent12) || formData.percent12,
+          board12: formData.board12,
+          school12: formData.school12 || application.academic?.school12 || '',
           physicsMarks: Number(formData.physicsMarks) || 0,
           chemistryMarks: Number(formData.chemistryMarks) || 0,
           mathMarks: Number(formData.mathMarks) || 0,
@@ -431,6 +440,28 @@ export const EditCandidateModal = ({ application, onClose, onSaved }) => {
                     <option value="CBSE">CBSE</option>
                     <option value="ICSE">ICSE</option>
                     <option value="WBBSE">WBBSE</option>
+                    <option value="Other">Other Board</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Class 12 Board %</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="percent12"
+                    value={formData.percent12}
+                    onChange={handleChange}
+                    className="form-input"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Class 12 Board</label>
+                  <select name="board12" value={formData.board12} onChange={handleChange} className="form-select">
+                    <option value="CBSE">CBSE</option>
+                    <option value="ISC">ISC</option>
+                    <option value="WBCHSE">WBCHSE</option>
                     <option value="Other">Other Board</option>
                   </select>
                 </div>

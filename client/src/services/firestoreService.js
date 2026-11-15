@@ -6,6 +6,7 @@ import {
   getDoc, 
   getDocs, 
   updateDoc,
+  deleteDoc,
   deleteField,
   onSnapshot,
   query,
@@ -219,6 +220,43 @@ export const firestoreService = {
       }
     }
     return { success: true, id: application.id, cloud: false, error: 'Firebase Firestore client is not initialized.' };
+  },
+
+  /**
+   * Delete an application permanently from Cloud Firestore and local caches
+   */
+  async deleteApplication(id) {
+    if (!id) return { success: false, reason: 'Invalid application ID' };
+
+    let cloudDeleted = false;
+    if (db) {
+      try {
+        const docRef = doc(db, COLLECTION_NAME, id);
+        await withTimeout(deleteDoc(docRef), 6000);
+        cloudDeleted = true;
+        console.log(`🔥 [Firestore] Successfully deleted application: ${id}`);
+      } catch (err) {
+        console.warn(`⚠️ [Firestore Delete] Cloud deletion error:`, err.message);
+      }
+    }
+
+    // Always clear from local caches
+    const cached = getLocalCache();
+    if (cached[id]) {
+      delete cached[id];
+      setLocalCache(cached);
+    }
+
+    try {
+      const adminAppsRaw = localStorage.getItem('iem_admin_applications');
+      if (adminAppsRaw) {
+        const apps = JSON.parse(adminAppsRaw);
+        const filtered = apps.filter(a => a.id !== id);
+        localStorage.setItem('iem_admin_applications', JSON.stringify(filtered));
+      }
+    } catch (e) {}
+
+    return { success: true, cloud: cloudDeleted };
   },
 
   /**

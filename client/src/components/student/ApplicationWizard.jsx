@@ -16,7 +16,11 @@ import {
   Check,
   Sparkles,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Lock,
+  Trash2,
+  Edit3,
+  Eye
 } from 'lucide-react';
 
 const BRANCH_OPTIONS = [
@@ -46,13 +50,32 @@ const sanitizePreferences = (prefs) => {
 
 export const ApplicationWizard = ({ onComplete }) => {
   const { user } = useAuth();
-  const { application, saveApplicationDraft, submitApplication } = useApplication();
+  const { application, saveApplicationDraft, submitApplication, deleteApplication } = useApplication();
+
+  const isVerified = ['VERIFIED_ELIGIBLE', 'SEAT_OFFERED', 'ADMISSION_CONFIRMED', 'REJECTED'].includes(application?.status);
+  const hasOfficialApp = Boolean(application?.id && !String(application.id).startsWith('IEM-2026-DRAFT-'));
 
   const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [declarationAgreed, setDeclarationAgreed] = useState(false);
+
+  const handleDeleteApplication = async () => {
+    if (!window.confirm('Are you sure you want to withdraw and permanently delete your application? This will erase your application record from the database. You will need to fill out the form again if you re-apply.')) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteApplication(application.id);
+      if (onComplete) onComplete();
+    } catch (err) {
+      // handled in context
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Helpers to clean digit strings
   const cleanPhone = (p) => {
@@ -213,6 +236,7 @@ export const ApplicationWizard = ({ onComplete }) => {
       <label className="form-label">School / Institution</label>
       <input
         type="text"
+        disabled={isVerified}
         value={academic[field] || ''}
         onChange={e => setAcademic(prev => ({ ...prev, [field]: sanitizeSchoolName(e.target.value) }))}
         className="form-input"
@@ -224,6 +248,7 @@ export const ApplicationWizard = ({ onComplete }) => {
   );
 
   const handleYearChange = (field, val) => {
+    if (isVerified) return;
     const digits = val.replace(/\D/g, '').slice(0, 4);
     if (digits.length === 4 && Number(digits) > currentYear) {
       setAcademic(prev => ({ ...prev, [field]: String(currentYear) }));
@@ -236,12 +261,27 @@ export const ApplicationWizard = ({ onComplete }) => {
     const val = academic[field] || '';
     const len = String(val).length;
     const isTooHigh = len === 4 && Number(val) > currentYear;
-    const isInvalid = Boolean(val) && (len !== 4 || isTooHigh);
+
+    const bothYearsFilled = Boolean(
+      academic.year10 &&
+      academic.year12 &&
+      String(academic.year10).length === 4 &&
+      String(academic.year12).length === 4
+    );
+    const hasYearGapError = bothYearsFilled && (Number(academic.year12) - Number(academic.year10) < 2);
+    const isInvalid = !isVerified && Boolean(val) && (len !== 4 || isTooHigh || (hasYearGapError && bothYearsFilled));
+
     return (
       <div className="form-group" style={{ marginBottom: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <label className="form-label" style={{ marginBottom: 0 }}>Year of Passing</label>
-          {val ? (
+          {hasYearGapError && bothYearsFilled ? (
+            <span style={{ fontSize: '0.72rem', color: 'var(--destructive)', fontWeight: 600 }}>
+              {field === 'year10'
+                ? `Must be ≤ ${Number(academic.year12) - 2}`
+                : `Must be ≥ ${Number(academic.year10) + 2}`}
+            </span>
+          ) : val ? (
             <span style={{ fontSize: '0.72rem', color: isTooHigh ? 'var(--destructive)' : len === 4 ? 'var(--success)' : '#64748B', fontWeight: 600 }}>
               {len}/4 digits
             </span>
@@ -251,6 +291,7 @@ export const ApplicationWizard = ({ onComplete }) => {
         </div>
         <input
           type="text"
+          disabled={isVerified}
           value={val}
           onChange={e => handleYearChange(field, e.target.value)}
           className="form-input"
@@ -261,14 +302,21 @@ export const ApplicationWizard = ({ onComplete }) => {
           placeholder={placeholder}
           maxLength={4}
         />
-        {val && len !== 4 && (
+        {!isVerified && val && len !== 4 && (
           <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
             ⚠ Year must be exactly 4 digits
           </span>
         )}
-        {isTooHigh && (
+        {!isVerified && isTooHigh && (
           <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
             ⚠ Year cannot exceed {currentYear}
+          </span>
+        )}
+        {!isVerified && hasYearGapError && bothYearsFilled && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
+            ⚠ {field === 'year10'
+              ? `Class 10 passing year must be at least 2 years before Class 12 (${academic.year12})`
+              : `Class 12 passing year must be at least 2 years after Class 10 (${academic.year10})`}
           </span>
         )}
       </div>
@@ -276,6 +324,7 @@ export const ApplicationWizard = ({ onComplete }) => {
   };
 
   const handlePercentChange = (field, val) => {
+    if (isVerified) return;
     if (val === '') {
       setAcademic(prev => ({ ...prev, [field]: '' }));
       return;
@@ -296,7 +345,7 @@ export const ApplicationWizard = ({ onComplete }) => {
     const num = Number(val);
     const isBelowMin = val !== '' && !isNaN(num) && num < 40;
     const isAboveMax = val !== '' && !isNaN(num) && num > 100;
-    const isInvalid = isBelowMin || isAboveMax || (val !== '' && num < 0);
+    const isInvalid = !isVerified && (isBelowMin || isAboveMax || (val !== '' && num < 0));
     return (
       <div className="form-group" style={{ marginBottom: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -305,6 +354,7 @@ export const ApplicationWizard = ({ onComplete }) => {
         </div>
         <input
           type="number"
+          disabled={isVerified}
           min="0"
           max="100"
           step="0.01"
@@ -391,6 +441,7 @@ export const ApplicationWizard = ({ onComplete }) => {
   };
 
   const isStepValid = (step) => {
+    if (isVerified) return true;
     if (step === 1) {
       const isNameValid = Boolean(personal.fullName && personal.fullName.trim().length >= 2);
       const isDobValid = Boolean(personal.dob && !dobError && candidateAge !== null && candidateAge >= 17 && candidateAge <= 21);
@@ -422,6 +473,12 @@ export const ApplicationWizard = ({ onComplete }) => {
       const isPercent10Valid = academic.percent10 === '' || (Number(academic.percent10) >= 40 && Number(academic.percent10) <= 100);
       const isYear12Valid = !academic.year12 || (String(academic.year12).length === 4 && Number(academic.year12) <= currentYear);
       const isPercent12Valid = academic.percent12 === '' || (Number(academic.percent12) >= 40 && Number(academic.percent12) <= 100);
+      const isYearGapValid = !(
+        academic.year10 &&
+        academic.year12 &&
+        String(academic.year10).length === 4 &&
+        String(academic.year12).length === 4
+      ) || (Number(academic.year12) - Number(academic.year10) >= 2);
 
       return Boolean(
         areMarksFilled &&
@@ -431,7 +488,8 @@ export const ApplicationWizard = ({ onComplete }) => {
         isYearValid &&
         isPercent10Valid &&
         isYear12Valid &&
-        isPercent12Valid
+        isPercent12Valid &&
+        isYearGapValid
       );
     }
     if (step === 3) {
@@ -536,6 +594,16 @@ export const ApplicationWizard = ({ onComplete }) => {
         setErrorMsg(`Class 12 Year of Passing cannot exceed ${currentYear}.`);
         return;
       }
+      if (
+        academic.year10 &&
+        academic.year12 &&
+        String(academic.year10).length === 4 &&
+        String(academic.year12).length === 4 &&
+        Number(academic.year12) - Number(academic.year10) < 2
+      ) {
+        setErrorMsg(`Ineligible: Class 10 passing year must be at least 2 years prior to Class 12 passing year (10th: ${academic.year10}, 12th: ${academic.year12}).`);
+        return;
+      }
       if (academic.percent12 !== '' && Number(academic.percent12) < 40) {
         setErrorMsg('Ineligible: Class 12 Aggregate % must be at least 40%.');
         return;
@@ -556,8 +624,19 @@ export const ApplicationWizard = ({ onComplete }) => {
   };
 
   const handleFinalSubmit = async () => {
+    if (isVerified) return;
     if (!declarationAgreed) {
       setErrorMsg('Please acknowledge and check the Solemn Declaration before final submission.');
+      return;
+    }
+    if (
+      academic.year10 &&
+      academic.year12 &&
+      String(academic.year10).length === 4 &&
+      String(academic.year12).length === 4 &&
+      Number(academic.year12) - Number(academic.year10) < 2
+    ) {
+      setErrorMsg('Ineligible: Class 10 passing year must be at least 2 years prior to Class 12 passing year.');
       return;
     }
     setSubmitting(true);
@@ -599,16 +678,65 @@ export const ApplicationWizard = ({ onComplete }) => {
           </h1>
         </div>
 
-        <button
-          onClick={handleSaveDraft}
-          disabled={savingDraft}
-          className="btn btn-outline btn-sm"
-          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          <Save size={15} />
-          <span>{savingDraft ? 'Saving Draft...' : 'Autosave Draft'}</span>
-        </button>
+        {!isVerified && (
+          <button
+            onClick={handleSaveDraft}
+            disabled={savingDraft}
+            className="btn btn-outline btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Save size={15} />
+            <span>{savingDraft ? 'Saving Draft...' : 'Autosave Draft'}</span>
+          </button>
+        )}
       </div>
+
+      {/* Post-Verification Locked View Notice */}
+      {isVerified && (
+        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '8px', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Lock size={22} color="var(--primary)" />
+            <div>
+              <strong style={{ fontSize: '0.9rem', color: '#1E3A8A' }}>Application Record Locked (Post-Verification View Mode)</strong>
+              <p style={{ margin: 0, fontSize: '0.78rem', color: '#2563EB' }}>
+                Your credentials have been scrutinized and verified by the Admission Scrutiny Committee. All records are locked for admission integrity and presented in read-only state.
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="badge badge-verified">VERIFIED & LOCKED</span>
+            {onComplete && (
+              <button onClick={onComplete} className="btn btn-outline btn-sm" style={{ fontSize: '0.75rem' }}>
+                Return to Status Hub
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Pre-Verification Editable Notice */}
+      {!isVerified && hasOfficialApp && (
+        <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Edit3 size={20} color="#15803D" />
+            <div>
+              <strong style={{ fontSize: '0.85rem', color: '#15803D' }}>Pre-Verification Editable Mode</strong>
+              <p style={{ margin: 0, fontSize: '0.78rem', color: '#166534' }}>
+                Your application has not yet been scrutinized by the committee. You may edit your particulars or withdraw your application. All changes immediately sync to the Firebase database.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleDeleteApplication}
+            disabled={deleting}
+            className="btn btn-outline btn-sm"
+            style={{ borderColor: '#FECACA', color: 'var(--destructive)', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem' }}
+          >
+            <Trash2 size={13} /> {deleting ? 'Withdrawing...' : 'Withdraw & Delete Application'}
+          </button>
+        </div>
+      )}
 
       {/* Stepper Navigation */}
       <div className="stepper-nav">
@@ -626,14 +754,14 @@ export const ApplicationWizard = ({ onComplete }) => {
           return (
             <div
               key={s.num}
-              className={`step-node ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+              className={`step-node ${isActive ? 'active' : ''} ${isCompleted || isVerified ? 'completed' : ''}`}
               onClick={() => {
-                if (isCompleted) setCurrentStep(s.num);
+                if (isCompleted || isVerified) setCurrentStep(s.num);
               }}
-              style={{ cursor: isCompleted ? 'pointer' : 'default' }}
+              style={{ cursor: isCompleted || isVerified ? 'pointer' : 'default' }}
             >
               <div className="step-circle">
-                {isCompleted ? <Check size={18} /> : <Icon size={18} />}
+                {isCompleted || isVerified ? <Check size={18} /> : <Icon size={18} />}
               </div>
               <span className="step-label hidden-mobile">{s.label}</span>
             </div>
@@ -666,6 +794,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <input
                   type="text"
                   required
+                  disabled={isVerified}
                   value={personal.fullName}
                   onChange={e => setPersonal({ ...personal, fullName: e.target.value.replace(/[^a-zA-Z\s.]/g, '') })}
                   className="form-input"
@@ -680,6 +809,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <input
                   type="date"
                   required
+                  disabled={isVerified}
                   max={new Date().toLocaleDateString('en-CA')}
                   value={personal.dob}
                   onChange={e => setPersonal({ ...personal, dob: e.target.value })}
@@ -689,7 +819,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                     borderColor: dobError ? 'var(--destructive)' : undefined
                   }}
                 />
-                {dobError && (
+                {!isVerified && dobError && (
                   <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
                     ⚠ {dobError}
                   </span>
@@ -699,6 +829,7 @@ export const ApplicationWizard = ({ onComplete }) => {
               <div className="form-group">
                 <label className="form-label">Gender</label>
                 <select
+                  disabled={isVerified}
                   value={personal.gender}
                   onChange={e => setPersonal({ ...personal, gender: e.target.value })}
                   className="form-select"
@@ -721,12 +852,13 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <input
                   type="tel"
                   required
+                  disabled={isVerified}
                   value={personal.phone}
                   onChange={e => setPersonal({ ...personal, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                   className="form-input"
                   style={{
                     marginTop: '4px',
-                    borderColor: personal.phone && personal.phone.length !== 10 ? 'var(--destructive)' : undefined
+                    borderColor: !isVerified && personal.phone && personal.phone.length !== 10 ? 'var(--destructive)' : undefined
                   }}
                   placeholder="9830123456"
                   maxLength={10}
@@ -734,7 +866,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                   pattern="[0-9]{10}"
                   title="Please enter exactly 10 digits"
                 />
-                {personal.phone && personal.phone.length !== 10 && (
+                {!isVerified && personal.phone && personal.phone.length !== 10 && (
                   <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
                     ⚠ Mobile number must be exactly 10 digits ({personal.phone.length}/10 entered)
                   </span>
@@ -746,6 +878,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <input
                   type="email"
                   required
+                  disabled={isVerified}
                   value={personal.email}
                   onChange={e => setPersonal({ ...personal, email: e.target.value })}
                   className="form-input"
@@ -761,6 +894,7 @@ export const ApplicationWizard = ({ onComplete }) => {
               <input
                 type="text"
                 required
+                disabled={isVerified}
                 value={personal.guardianName}
                 onChange={e => setPersonal({ ...personal, guardianName: e.target.value.replace(/[^a-zA-Z\s.]/g, '') })}
                 className="form-input"
@@ -774,6 +908,7 @@ export const ApplicationWizard = ({ onComplete }) => {
               <div className="form-group">
                 <label className="form-label">Guardian Relationship</label>
                 <select
+                  disabled={isVerified}
                   value={personal.guardianRelation}
                   onChange={e => setPersonal({ ...personal, guardianRelation: e.target.value })}
                   className="form-select"
@@ -796,12 +931,13 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <input
                   type="tel"
                   required
+                  disabled={isVerified}
                   value={personal.guardianPhone}
                   onChange={e => setPersonal({ ...personal, guardianPhone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                   className="form-input"
                   style={{
                     marginTop: '4px',
-                    borderColor: personal.guardianPhone && personal.guardianPhone.length !== 10 ? 'var(--destructive)' : undefined
+                    borderColor: !isVerified && personal.guardianPhone && personal.guardianPhone.length !== 10 ? 'var(--destructive)' : undefined
                   }}
                   placeholder="9830011223"
                   maxLength={10}
@@ -809,7 +945,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                   pattern="[0-9]{10}"
                   title="Please enter exactly 10 digits"
                 />
-                {personal.guardianPhone && personal.guardianPhone.length !== 10 && (
+                {!isVerified && personal.guardianPhone && personal.guardianPhone.length !== 10 && (
                   <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
                     ⚠ Guardian contact number must be exactly 10 digits ({personal.guardianPhone.length}/10 entered)
                   </span>
@@ -821,6 +957,7 @@ export const ApplicationWizard = ({ onComplete }) => {
               <label className="form-label">Permanent Postal Address</label>
               <textarea
                 rows={2}
+                disabled={isVerified}
                 value={personal.address}
                 onChange={e => setPersonal({ ...personal, address: e.target.value })}
                 className="form-textarea"
@@ -833,6 +970,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <label className="form-label">City</label>
                 <input
                   type="text"
+                  disabled={isVerified}
                   value={personal.city}
                   onChange={e => setPersonal({ ...personal, city: e.target.value.replace(/[^a-zA-Z\s]/g, '') })}
                   className="form-input"
@@ -846,6 +984,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <label className="form-label">State</label>
                 <input
                   type="text"
+                  disabled={isVerified}
                   value={personal.state}
                   onChange={e => setPersonal({ ...personal, state: e.target.value.replace(/[^a-zA-Z\s]/g, '') })}
                   className="form-input"
@@ -865,12 +1004,13 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <input
                   type="text"
                   required
+                  disabled={isVerified}
                   value={personal.pincode}
                   onChange={e => setPersonal({ ...personal, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
                   className="form-input"
                   style={{
                     marginTop: '4px',
-                    borderColor: personal.pincode && personal.pincode.length !== 6 ? 'var(--destructive)' : undefined
+                    borderColor: !isVerified && personal.pincode && personal.pincode.length !== 6 ? 'var(--destructive)' : undefined
                   }}
                   placeholder="Enter PIN Code"
                   maxLength={6}
@@ -878,7 +1018,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                   pattern="[0-9]{6}"
                   title="Please enter exactly 6 digits"
                 />
-                {personal.pincode && personal.pincode.length !== 6 && (
+                {!isVerified && personal.pincode && personal.pincode.length !== 6 && (
                   <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
                     ⚠ PIN code must be exactly 6 digits ({personal.pincode.length}/6 entered)
                   </span>
@@ -905,6 +1045,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Board / Council</label>
                   <select
+                    disabled={isVerified}
                     value={academic.board10}
                     onChange={e => setAcademic({ ...academic, board10: e.target.value })}
                     className="form-select"
@@ -935,6 +1076,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Board / Council</label>
                   <select
+                    disabled={isVerified}
                     value={academic.board12}
                     onChange={e => setAcademic({ ...academic, board12: e.target.value })}
                     className="form-select"
@@ -975,6 +1117,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                     min="0"
                     max="100"
                     step="1"
+                    disabled={isVerified}
                     value={academic.physicsMarks}
                     onChange={e => handleMarksChange('physicsMarks', e.target.value)}
                     className="form-input"
@@ -990,6 +1133,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                     min="0"
                     max="100"
                     step="1"
+                    disabled={isVerified}
                     value={academic.chemistryMarks}
                     onChange={e => handleMarksChange('chemistryMarks', e.target.value)}
                     className="form-input"
@@ -1005,6 +1149,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                     min="0"
                     max="100"
                     step="1"
+                    disabled={isVerified}
                     value={academic.mathMarks}
                     onChange={e => handleMarksChange('mathMarks', e.target.value)}
                     className="form-input"
@@ -1024,6 +1169,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Exam Body</label>
                   <select
+                    disabled={isVerified}
                     value={academic.examType}
                     onChange={e => setAcademic({ ...academic, examType: e.target.value })}
                     className="form-select"
@@ -1045,20 +1191,21 @@ export const ApplicationWizard = ({ onComplete }) => {
                   <input
                     type="text"
                     required
+                    disabled={isVerified}
                     placeholder="Enter Roll No"
                     value={academic.examRoll}
                     onChange={e => setAcademic({ ...academic, examRoll: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                     className="form-input"
                     style={{
                       marginTop: '4px',
-                      borderColor: academic.examRoll && academic.examRoll.length !== 10 ? 'var(--destructive)' : undefined
+                      borderColor: !isVerified && academic.examRoll && academic.examRoll.length !== 10 ? 'var(--destructive)' : undefined
                     }}
                     maxLength={10}
                     minLength={10}
                     pattern="[0-9]{10}"
                     title="Please enter exactly 10 digits"
                   />
-                  {academic.examRoll && academic.examRoll.length !== 10 && (
+                  {!isVerified && academic.examRoll && academic.examRoll.length !== 10 && (
                     <span style={{ fontSize: '0.75rem', color: 'var(--destructive)', marginTop: '4px', display: 'block' }}>
                       ⚠ Roll number must be exactly 10 digits ({academic.examRoll.length}/10 entered)
                     </span>
@@ -1070,6 +1217,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                   <input
                     type="text"
                     required
+                    disabled={isVerified}
                     placeholder="Enter Rank"
                     value={academic.examRank}
                     onChange={e => setAcademic({ ...academic, examRank: e.target.value.replace(/\D/g, '').slice(0, 7) })}
@@ -1135,6 +1283,7 @@ export const ApplicationWizard = ({ onComplete }) => {
                         {cfg.label}
                       </div>
                       <select
+                        disabled={isVerified}
                         value={currentValue}
                         onChange={e => handlePreferenceChange(cfg.index, e.target.value)}
                         className="form-select"
@@ -1164,15 +1313,15 @@ export const ApplicationWizard = ({ onComplete }) => {
                       <button
                         type="button"
                         onClick={() => handleMovePreference(cfg.index, -1)}
-                        disabled={cfg.index === 0}
+                        disabled={isVerified || cfg.index === 0}
                         className="btn btn-outline btn-sm"
                         style={{
                           padding: '4px 8px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          opacity: cfg.index === 0 ? 0.25 : 1,
-                          cursor: cfg.index === 0 ? 'not-allowed' : 'pointer'
+                          opacity: isVerified || cfg.index === 0 ? 0.25 : 1,
+                          cursor: isVerified || cfg.index === 0 ? 'not-allowed' : 'pointer'
                         }}
                         title="Move priority up"
                       >
@@ -1181,15 +1330,15 @@ export const ApplicationWizard = ({ onComplete }) => {
                       <button
                         type="button"
                         onClick={() => handleMovePreference(cfg.index, 1)}
-                        disabled={cfg.index === 2}
+                        disabled={isVerified || cfg.index === 2}
                         className="btn btn-outline btn-sm"
                         style={{
                           padding: '4px 8px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          opacity: cfg.index === 2 ? 0.25 : 1,
-                          cursor: cfg.index === 2 ? 'not-allowed' : 'pointer'
+                          opacity: isVerified || cfg.index === 2 ? 0.25 : 1,
+                          cursor: isVerified || cfg.index === 2 ? 'not-allowed' : 'pointer'
                         }}
                         title="Move priority down"
                       >
@@ -1226,10 +1375,12 @@ export const ApplicationWizard = ({ onComplete }) => {
                   <img src={documents.photo.url} alt="Photo" style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #CBD5E1' }} />
                   <div style={{ flex: 1, overflow: 'hidden' }}>
                     <div style={{ fontSize: '0.75rem', fontWeight: 600, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{documents.photo.name}</div>
-                    <label className="btn btn-outline btn-sm" style={{ marginTop: '4px', cursor: 'pointer', display: 'inline-flex' }}>
-                      Change File
-                      <input type="file" accept="image/*" onChange={e => handleFileUpload('photo', e)} style={{ display: 'none' }} />
-                    </label>
+                    {!isVerified && (
+                      <label className="btn btn-outline btn-sm" style={{ marginTop: '4px', cursor: 'pointer', display: 'inline-flex' }}>
+                        Change File
+                        <input type="file" accept="image/*" onChange={e => handleFileUpload('photo', e)} style={{ display: 'none' }} />
+                      </label>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1246,10 +1397,12 @@ export const ApplicationWizard = ({ onComplete }) => {
                   </div>
                   <div style={{ flex: 1, overflow: 'hidden' }}>
                     <div style={{ fontSize: '0.75rem', fontWeight: 600, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{documents.admit10.name}</div>
-                    <label className="btn btn-outline btn-sm" style={{ marginTop: '4px', cursor: 'pointer', display: 'inline-flex' }}>
-                      Change File
-                      <input type="file" accept="image/*,application/pdf" onChange={e => handleFileUpload('admit10', e)} style={{ display: 'none' }} />
-                    </label>
+                    {!isVerified && (
+                      <label className="btn btn-outline btn-sm" style={{ marginTop: '4px', cursor: 'pointer', display: 'inline-flex' }}>
+                        Change File
+                        <input type="file" accept="image/*,application/pdf" onChange={e => handleFileUpload('admit10', e)} style={{ display: 'none' }} />
+                      </label>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1266,10 +1419,12 @@ export const ApplicationWizard = ({ onComplete }) => {
                   </div>
                   <div style={{ flex: 1, overflow: 'hidden' }}>
                     <div style={{ fontSize: '0.75rem', fontWeight: 600, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{documents.marksheet12.name}</div>
-                    <label className="btn btn-outline btn-sm" style={{ marginTop: '4px', cursor: 'pointer', display: 'inline-flex' }}>
-                      Change File
-                      <input type="file" accept="image/*,application/pdf" onChange={e => handleFileUpload('marksheet12', e)} style={{ display: 'none' }} />
-                    </label>
+                    {!isVerified && (
+                      <label className="btn btn-outline btn-sm" style={{ marginTop: '4px', cursor: 'pointer', display: 'inline-flex' }}>
+                        Change File
+                        <input type="file" accept="image/*,application/pdf" onChange={e => handleFileUpload('marksheet12', e)} style={{ display: 'none' }} />
+                      </label>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1286,10 +1441,12 @@ export const ApplicationWizard = ({ onComplete }) => {
                   </div>
                   <div style={{ flex: 1, overflow: 'hidden' }}>
                     <div style={{ fontSize: '0.75rem', fontWeight: 600, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{documents.rankCard.name}</div>
-                    <label className="btn btn-outline btn-sm" style={{ marginTop: '4px', cursor: 'pointer', display: 'inline-flex' }}>
-                      Change File
-                      <input type="file" accept="image/*,application/pdf" onChange={e => handleFileUpload('rankCard', e)} style={{ display: 'none' }} />
-                    </label>
+                    {!isVerified && (
+                      <label className="btn btn-outline btn-sm" style={{ marginTop: '4px', cursor: 'pointer', display: 'inline-flex' }}>
+                        Change File
+                        <input type="file" accept="image/*,application/pdf" onChange={e => handleFileUpload('rankCard', e)} style={{ display: 'none' }} />
+                      </label>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1311,7 +1468,9 @@ export const ApplicationWizard = ({ onComplete }) => {
               <div style={{ background: '#F8FAFC', padding: '1rem 1.25rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <strong style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Personal Details</strong>
-                  <button onClick={() => setCurrentStep(1)} className="btn-ghost" style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>Edit</button>
+                  {!isVerified && (
+                    <button onClick={() => setCurrentStep(1)} className="btn-ghost" style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>Edit</button>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 md-col-1 gap-2" style={{ fontSize: '0.8rem' }}>
                   <div>Name: <strong>{personal.fullName}</strong></div>
@@ -1326,7 +1485,9 @@ export const ApplicationWizard = ({ onComplete }) => {
               <div style={{ background: '#F8FAFC', padding: '1rem 1.25rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <strong style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Academic Qualifications</strong>
-                  <button onClick={() => setCurrentStep(2)} className="btn-ghost" style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>Edit</button>
+                  {!isVerified && (
+                    <button onClick={() => setCurrentStep(2)} className="btn-ghost" style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>Edit</button>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 md-col-1 gap-2" style={{ fontSize: '0.8rem' }}>
                   <div>Class 10: <strong>{academic.percent10}%</strong> ({academic.board10})</div>
@@ -1341,7 +1502,9 @@ export const ApplicationWizard = ({ onComplete }) => {
               <div style={{ background: '#F8FAFC', padding: '1rem 1.25rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <strong style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Department Choice Order</strong>
-                  <button onClick={() => setCurrentStep(3)} className="btn-ghost" style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>Edit</button>
+                  {!isVerified && (
+                    <button onClick={() => setCurrentStep(3)} className="btn-ghost" style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>Edit</button>
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', fontWeight: 600 }}>
                   <span>1. {preferences[0]}</span>
@@ -1353,10 +1516,11 @@ export const ApplicationWizard = ({ onComplete }) => {
 
             {/* Solemn Declaration Checkbox */}
             <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '1.25rem', borderRadius: '8px', marginBottom: '2rem' }}>
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer' }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: isVerified ? 'default' : 'pointer' }}>
                 <input
                   type="checkbox"
-                  checked={declarationAgreed}
+                  checked={isVerified || declarationAgreed}
+                  disabled={isVerified}
                   onChange={e => setDeclarationAgreed(e.target.checked)}
                   style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: 'var(--primary)' }}
                 />
@@ -1385,20 +1549,36 @@ export const ApplicationWizard = ({ onComplete }) => {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
               <button
                 type="button"
-                disabled={!isStepValid(currentStep)}
-                onClick={handleNextStep}
+                disabled={!isVerified && !isStepValid(currentStep)}
+                onClick={isVerified ? () => setCurrentStep(prev => prev + 1) : handleNextStep}
                 className="btn btn-primary"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  opacity: !isStepValid(currentStep) ? 0.5 : 1,
-                  cursor: !isStepValid(currentStep) ? 'not-allowed' : 'pointer'
+                  opacity: (!isVerified && !isStepValid(currentStep)) ? 0.5 : 1,
+                  cursor: (!isVerified && !isStepValid(currentStep)) ? 'not-allowed' : 'pointer'
                 }}
                 title={!isStepValid(currentStep) ? 'Please complete all required fields with the correct number of digits to continue' : ''}
               >
                 Continue to Step {currentStep + 1} <ArrowRight size={16} />
               </button>
+            </div>
+          ) : isVerified ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '0.85rem', color: '#1E40AF', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}>
+                <Lock size={15} /> Application Verified & Secured
+              </span>
+              {onComplete && (
+                <button
+                  type="button"
+                  onClick={onComplete}
+                  className="btn btn-primary btn-lg"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <Eye size={16} /> Return to Status & Fee Hub
+                </button>
+              )}
             </div>
           ) : (
             <button
@@ -1408,7 +1588,7 @@ export const ApplicationWizard = ({ onComplete }) => {
               className="btn btn-primary btn-lg"
               style={{ display: 'flex', alignItems: 'center', gap: '8px', boxShadow: 'var(--shadow-glow)' }}
             >
-              {submitting ? 'Submitting & Generating ID...' : 'Submit Application & Lock'}
+              {submitting ? 'Updating Database...' : (hasOfficialApp ? 'Save Changes & Update Application' : 'Submit Application & Lock')}
               <CheckCircle size={18} />
             </button>
           )}
