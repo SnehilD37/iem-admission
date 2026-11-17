@@ -66,12 +66,36 @@ export const StatusAndPaymentHub = ({ onEditDraft }) => {
   }
 
   const status = application.status;
-  const isPaid = application.payment?.status === 'PAID' || status === 'ADMISSION_CONFIRMED';
-  const isVerifiedByAdmin = ['VERIFIED_ELIGIBLE', 'SEAT_OFFERED', 'ADMISSION_CONFIRMED', 'REJECTED'].includes(status);
-  const isActionRequired = status === 'ACTION_REQUIRED';
+  const normStatus = String(status || '').toUpperCase();
+  const isPaid = application.payment?.status === 'PAID' || 
+    Boolean(application.payment?.transactionId) || 
+    ['ADMISSION_CONFIRMED', 'ENROLLED', 'FEE_PAID', 'PAID', 'PAYMENT_COMPLETED', 'CONFIRMED'].includes(normStatus);
+  const isVerifiedByAdmin = Boolean(
+    application.allottedBranch ||
+    application.allotmentDate ||
+    isPaid ||
+    [
+      'VERIFIED_ELIGIBLE',
+      'VERIFIED',
+      'SEAT_OFFERED',
+      'ALLOTTED',
+      'SEAT_ALLOTTED',
+      'BRANCH_ALLOTTED',
+      'PROVISIONALLY_ALLOTTED',
+      'SELECTED',
+      'ADMISSION_CONFIRMED',
+      'ENROLLED',
+      'FEE_PAID',
+      'PAID',
+      'PAYMENT_COMPLETED',
+      'CONFIRMED',
+      'REJECTED'
+    ].includes(normStatus)
+  );
+  const isActionRequired = normStatus === 'ACTION_REQUIRED';
   // Payment is available only if verified/offered AND has not paid yet
-  const isSeatOffered = (status === 'SEAT_OFFERED' || status === 'VERIFIED_ELIGIBLE') && !isPaid;
-  const isConfirmed = status === 'ADMISSION_CONFIRMED' || isPaid;
+  const isSeatOffered = (normStatus === 'SEAT_OFFERED' || normStatus === 'VERIFIED_ELIGIBLE' || normStatus === 'ALLOTTED') && !isPaid;
+  const isConfirmed = normStatus === 'ADMISSION_CONFIRMED' || normStatus === 'ENROLLED' || isPaid;
 
   // Lifecycle steps
   const lifecycleSteps = [

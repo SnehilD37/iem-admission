@@ -52,7 +52,33 @@ export const ApplicationWizard = ({ onComplete }) => {
   const { user } = useAuth();
   const { application, saveApplicationDraft, submitApplication, deleteApplication } = useApplication();
 
-  const isVerified = ['VERIFIED_ELIGIBLE', 'SEAT_OFFERED', 'ADMISSION_CONFIRMED', 'REJECTED'].includes(application?.status);
+  const normStatus = String(application?.status || '').toUpperCase();
+  const isAllottedOrVerifiedOrPaid = Boolean(
+    application?.allottedBranch ||
+    application?.allotmentDate ||
+    application?.studentId ||
+    application?.enrollmentId ||
+    application?.payment?.status === 'PAID' ||
+    application?.payment?.transactionId ||
+    [
+      'VERIFIED_ELIGIBLE',
+      'VERIFIED',
+      'SEAT_OFFERED',
+      'ALLOTTED',
+      'SEAT_ALLOTTED',
+      'BRANCH_ALLOTTED',
+      'PROVISIONALLY_ALLOTTED',
+      'SELECTED',
+      'ADMISSION_CONFIRMED',
+      'ENROLLED',
+      'FEE_PAID',
+      'PAID',
+      'PAYMENT_COMPLETED',
+      'CONFIRMED',
+      'REJECTED'
+    ].includes(normStatus)
+  );
+  const isVerified = isAllottedOrVerifiedOrPaid;
   const hasOfficialApp = Boolean(application?.id && !String(application.id).startsWith('IEM-2026-DRAFT-'));
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -1565,10 +1591,27 @@ export const ApplicationWizard = ({ onComplete }) => {
               </button>
             </div>
           ) : isVerified ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '0.85rem', color: '#1E40AF', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}>
-                <Lock size={15} /> Application Verified & Secured
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                disabled={true}
+                className="btn btn-secondary btn-lg"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'not-allowed',
+                  backgroundColor: '#475569',
+                  borderColor: '#475569',
+                  color: '#FFFFFF',
+                  opacity: 0.9,
+                  fontWeight: 600,
+                  boxShadow: 'none'
+                }}
+                title="Application has already been submitted and verified. Modifications are locked."
+              >
+                <Lock size={18} /> Already Submitted and Verified
+              </button>
               {onComplete && (
                 <button
                   type="button"

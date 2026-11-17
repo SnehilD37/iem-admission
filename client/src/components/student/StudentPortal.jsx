@@ -9,8 +9,36 @@ export const StudentPortal = () => {
   const [viewMode, setViewMode] = useState(application ? 'status' : 'wizard'); // 'wizard' | 'status'
 
   // If application exists and in non-draft status, default to status
-  const hasSubmittedApp = application && application.status !== 'DRAFT';
-  const isVerified = ['VERIFIED_ELIGIBLE', 'SEAT_OFFERED', 'ADMISSION_CONFIRMED', 'REJECTED'].includes(application?.status);
+  const normStatus = String(application?.status || '').toUpperCase();
+  const hasSubmittedApp = Boolean(
+    application && 
+    (application.status !== 'DRAFT' || application.allottedBranch || (application.id && !String(application.id).startsWith('IEM-2026-DRAFT-')))
+  );
+  const isVerified = Boolean(
+    application?.allottedBranch ||
+    application?.allotmentDate ||
+    application?.studentId ||
+    application?.enrollmentId ||
+    application?.payment?.status === 'PAID' ||
+    application?.payment?.transactionId ||
+    [
+      'VERIFIED_ELIGIBLE',
+      'VERIFIED',
+      'SEAT_OFFERED',
+      'ALLOTTED',
+      'SEAT_ALLOTTED',
+      'BRANCH_ALLOTTED',
+      'PROVISIONALLY_ALLOTTED',
+      'SELECTED',
+      'ADMISSION_CONFIRMED',
+      'ENROLLED',
+      'FEE_PAID',
+      'PAID',
+      'PAYMENT_COMPLETED',
+      'CONFIRMED',
+      'REJECTED'
+    ].includes(normStatus)
+  );
 
   return (
     <div style={{ minHeight: 'calc(100vh - 180px)', backgroundColor: 'var(--background)' }}>

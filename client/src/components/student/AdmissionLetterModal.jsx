@@ -133,7 +133,7 @@ export const AdmissionLetterModal = ({ isOpen, onClose, application }) => {
           </table>
 
           {/* Payment Settlement Information Box */}
-          <div style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '12px 16px', marginBottom: '2rem', fontSize: '0.8rem' }}>
+          <div style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '12px 16px', marginBottom: '1rem', fontSize: '0.8rem' }}>
             <div style={{ fontWeight: 700, color: '#059669', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <CheckCircle size={15} /> Fee Settlement Verified via Razorpay Gateway
             </div>
@@ -141,45 +141,6 @@ export const AdmissionLetterModal = ({ isOpen, onClose, application }) => {
               <div>Amount Settled: <strong>₹85,000.00</strong></div>
               <div>Txn / Payment ID: <span style={{ fontFamily: 'monospace' }}>{paymentId}</span></div>
               <div>Receipt No: <strong>{receiptNo}</strong></div>
-            </div>
-          </div>
-
-          {/* Terms & Verification QR */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid #E2E8F0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {/* Simulated QR Code SVG */}
-              <div style={{ width: '80px', height: '80px', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px' }}>
-                <svg width="70" height="70" viewBox="0 0 100 100">
-                  <rect x="0" y="0" width="30" height="30" fill="#0F172A" />
-                  <rect x="5" y="5" width="20" height="20" fill="#FFF" />
-                  <rect x="10" y="10" width="10" height="10" fill="#0F172A" />
-                  <rect x="70" y="0" width="30" height="30" fill="#0F172A" />
-                  <rect x="75" y="5" width="20" height="20" fill="#FFF" />
-                  <rect x="80" y="10" width="10" height="10" fill="#0F172A" />
-                  <rect x="0" y="70" width="30" height="30" fill="#0F172A" />
-                  <rect x="5" y="75" width="20" height="20" fill="#FFF" />
-                  <rect x="10" y="80" width="10" height="10" fill="#0F172A" />
-                  <circle cx="50" cy="50" r="10" fill="#1E3A8A" />
-                  <rect x="40" y="20" width="10" height="10" fill="#0F172A" />
-                  <rect x="65" y="45" width="10" height="15" fill="#0F172A" />
-                  <rect x="45" y="75" width="15" height="10" fill="#0F172A" />
-                </svg>
-              </div>
-              <div style={{ fontSize: '0.7rem', color: '#64748B', maxWidth: '220px' }}>
-                Scan to verify authenticity on IEM central academic portal (MAKAUT blockchain verification node).
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'cursive', fontSize: '1.25rem', color: '#1E3A8A', marginBottom: '4px' }}>
-                Prof. (Dr.) S. K. Bhattacharya
-              </div>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0F172A' }}>
-                Registrar & Member Secretary
-              </div>
-              <div style={{ fontSize: '0.7rem', color: '#64748B' }}>
-                Central Admission Committee, IEM
-              </div>
             </div>
           </div>
         </div>

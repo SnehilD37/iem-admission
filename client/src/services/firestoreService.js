@@ -329,20 +329,36 @@ export const firestoreService = {
   },
 
   /**
-   * Retrieve an application for a specific user ID (Cloud Firestore first, cache fallback on error)
+   * Retrieve an application for a specific user ID or email (Cloud Firestore first, cache fallback on error)
    */
-  async getApplicationByUserId(userId) {
-    if (!userId) return { success: false, application: null };
+  async getApplicationByUserId(userId, email = null) {
+    if (!userId && !email) return { success: false, application: null };
     const cached = getLocalCache();
 
     // 1. Query Cloud Firestore FIRST so stale local cache never masks Firebase edits/deletions
     if (db) {
       try {
         const colRef = collection(db, COLLECTION_NAME);
-        const q = query(colRef, where('userId', '==', userId));
-        const snap = await withTimeout(getDocs(q), 5000);
-        if (!snap.empty) {
-          const matches = snap.docs.map(d => parseFirestoreDoc(d)).filter(Boolean);
+        let matches = [];
+
+        if (userId) {
+          const q = query(colRef, where('userId', '==', userId));
+          const snap = await withTimeout(getDocs(q), 5000);
+          if (!snap.empty) {
+            matches = snap.docs.map(d => parseFirestoreDoc(d)).filter(Boolean);
+          }
+        }
+
+        // Fallback to querying by email if userId didn't match or wasn't provided
+        if (matches.length === 0 && email) {
+          const qEmail = query(colRef, where('email', '==', email));
+          const snapEmail = await withTimeout(getDocs(qEmail), 5000);
+          if (!snapEmail.empty) {
+            matches = snapEmail.docs.map(d => parseFirestoreDoc(d)).filter(Boolean);
+          }
+        }
+
+        if (matches.length > 0) {
           // Prefer non-draft / already allotted record if user has multiple docs
           const preferred =
             matches.find(a => a.allottedBranch) ||
@@ -359,7 +375,10 @@ export const firestoreService = {
         // Firestore query succeeded and found no record for this user -> remove any stale cached entry
         let cacheDirty = false;
         Object.keys(cached).forEach(k => {
-          if (cached[k]?.userId === userId) {
+          const c = cached[k];
+          const matchesUser = userId && c?.userId === userId;
+          const matchesEmail = email && (c?.email === email || c?.personal?.email === email);
+          if (matchesUser || matchesEmail) {
             delete cached[k];
             cacheDirty = true;
           }
@@ -373,12 +392,23 @@ export const firestoreService = {
     }
 
     // 2. Offline / error fallback: check local cache
-    const localMatch = Object.values(cached).find(a => a.userId === userId);
+    const localMatch = Object.values(cached).find(a => 
+      (userId && a.userId === userId) || 
+      (email && (a.email === email || a.personal?.email === email))
+    );
     if (localMatch) {
       return { success: true, application: localMatch, cloudAuthoritative: false };
     }
 
     return { success: false, application: null, cloudAuthoritative: false };
+  },
+
+  /**
+   * Retrieve an application by applicant email
+   */
+  async getApplicationByEmail(email) {
+    if (!email) return { success: false, application: null };
+    return this.getApplicationByUserId(null, email);
   },
 
   /**

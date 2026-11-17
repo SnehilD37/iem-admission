@@ -107,8 +107,8 @@ export const ApplicationProvider = ({ children }) => {
     if (!user) return;
     setLoadingApp(true);
     try {
-      // 1. Check Cloud Firebase Firestore directly by user.uid
-      const fsUserRes = await firestoreService.getApplicationByUserId(user.uid);
+      // 1. Check Cloud Firebase Firestore directly by user.uid or user.email
+      const fsUserRes = await firestoreService.getApplicationByUserId(user.uid, user.email);
       if (fsUserRes.success && fsUserRes.application) {
         setApplication(fsUserRes.application);
         setLoadingApp(false);
@@ -123,17 +123,16 @@ export const ApplicationProvider = ({ children }) => {
           setLoadingApp(false);
           return;
         }
-        // If Firestore responded authoritatively that neither uid nor applicationId exists, respect cloud state
-        if (fsUserRes.cloudAuthoritative && fsIdRes.cloudAuthoritative) {
-          setApplication(null);
+      }
+
+      // Check by user.email directly if present
+      if (user.email) {
+        const fsEmailRes = await firestoreService.getApplicationByEmail(user.email);
+        if (fsEmailRes.success && fsEmailRes.application) {
+          setApplication(fsEmailRes.application);
           setLoadingApp(false);
           return;
         }
-      } else if (fsUserRes.cloudAuthoritative) {
-        // Firestore responded authoritatively with no application for this user
-        setApplication(null);
-        setLoadingApp(false);
-        return;
       }
 
       // 2. Offline / non-authoritative fallback: check backend API
@@ -151,7 +150,11 @@ export const ApplicationProvider = ({ children }) => {
       // Final fallback: check all Firestore apps
       const fsAll = await firestoreService.getAllApplications();
       if (fsAll.success && fsAll.applications.length > 0) {
-        const match = fsAll.applications.find(a => a.userId === user.uid || a.id === user.applicationId);
+        const match = fsAll.applications.find(a => 
+          (user.uid && a.userId === user.uid) || 
+          (user.applicationId && a.id === user.applicationId) ||
+          (user.email && (a.email === user.email || a.personal?.email === user.email))
+        );
         if (match) {
           setApplication(match);
           return;
